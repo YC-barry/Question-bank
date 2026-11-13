@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "offline-quiz"
+version = "1.5.1.dev8"
+description = "岿枢题典：完全离线的 Windows 题库与考试工具"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+  "PySide6==6.9.2",
+  "openpyxl>=3.1,<4",
+  "python-docx>=1.1,<2",
+  "python-pptx>=1.0,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "pytest-qt>=4.4,<5", "pyinstaller>=6,<7"]
+
+[project.scripts]
+offline-quiz = "offline_quiz.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
+qt_api = "pyside6"

@@ -1,0 +1,23 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+build/
+dist/
+*.db
+*.log
+.superpowers/
+
+# Local analysis, QA output, smoke-test output and temporary build trees.
+.analysis_docs/
+.build_temp*/
+.handoff/
+.qa_ui/
+.smoke*/
+.test*/
+UsersASUSDocumentsChatGPT辰.build_temp*/
+
+# Downloaded/expanded LibreOffice is required for packaging but is too large
+# for ordinary GitHub storage. See third_party/README.md for restoration steps.
+third_party/downloads/
+third_party/libreoffice/

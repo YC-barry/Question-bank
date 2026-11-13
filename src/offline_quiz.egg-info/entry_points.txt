@@ -1,0 +1,2 @@
+[console_scripts]
+offline-quiz = offline_quiz.app:main

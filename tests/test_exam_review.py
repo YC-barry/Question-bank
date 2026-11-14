@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import base64
+from io import BytesIO
 
+from PIL import Image
 from PySide6.QtCore import QRect, Qt
-from PySide6.QtWidgets import QApplication, QScrollArea
+from PySide6.QtWidgets import QApplication, QLabel, QScrollArea
 
 from offline_quiz.domain import Question, QuestionAsset, QuestionType
 from offline_quiz.widgets.exam_review import ExamReviewDialog, fit_review_to_available
@@ -76,3 +78,42 @@ def test_exam_review_fits_1366_by_768_without_horizontal_overflow(qtbot):
     assert dialog.previous_button.isVisible()
     assert dialog.next_button.isVisible()
     assert dialog.close_button.isVisible()
+
+
+def test_exam_review_long_explanation_uses_outer_page_scroll(qtbot):
+    dialog = ExamReviewDialog("试卷回看", [_item(0, False)])
+    qtbot.addWidget(dialog)
+    dialog.show()
+    QApplication.processEvents()
+
+    explanation = dialog.answer_panel.explanation
+    qtbot.waitUntil(
+        lambda: explanation.verticalScrollBar().maximum() == 0
+        and dialog.detail_scroll.verticalScrollBar().maximum() > 0,
+        timeout=1000,
+    )
+
+    assert explanation.verticalScrollBarPolicy() == Qt.ScrollBarAlwaysOff
+    assert explanation.verticalScrollBar().maximum() == 0
+    assert explanation.viewport().height() >= explanation.document().size().height() - 2
+    assert dialog.detail_scroll.verticalScrollBar().maximum() > 0
+
+
+def test_media_view_scales_wide_images_to_available_width_without_cropping(qtbot):
+    buffer = BytesIO()
+    Image.new("RGB", (1200, 600), "white").save(buffer, format="PNG")
+    view = MediaView([QuestionAsset("image/png", buffer.getvalue(), 0, "尺寸链图")])
+    view.setFixedWidth(500)
+    view.resize(500, 400)
+    qtbot.addWidget(view)
+    view.show()
+    QApplication.processEvents()
+
+    image_label = next(
+        label for label in view.findChildren(QLabel) if label.pixmap() is not None
+    )
+    pixmap = image_label.pixmap()
+
+    assert pixmap.width() <= view.contentsRect().width()
+    assert abs((pixmap.width() / pixmap.height()) - 2.0) < 0.02
+    assert image_label.height() >= pixmap.height()

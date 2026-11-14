@@ -108,7 +108,10 @@ def _canonical_stem(question_type: QuestionType, stem: str) -> str:
             and folded[index + 1].isdigit()
         ):
             canonical.append(character)
-    return "".join(canonical)
+    normalized = "".join(canonical)
+    if question_type is QuestionType.FILL_BLANK:
+        normalized = re.sub(r"¤+", "¤", normalized)
+    return normalized
 
 
 def normalize_stem(question_type: QuestionType, stem: str) -> str:

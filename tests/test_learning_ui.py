@@ -426,6 +426,45 @@ def test_sequential_navigator_restores_previous_answer_without_saving_again(qtbo
     assert len(database.get_session(session.id)["items"]) == saved_before_review
 
 
+def test_sequential_previous_button_returns_to_completed_question(qtbot, tmp_path):
+    database = _database_with_two_questions(tmp_path)
+    session = QuizService(database).create_session({}, None, QuizMode.SEQUENTIAL)
+    dialog = QuizDialog(database, session)
+    qtbot.addWidget(dialog)
+
+    dialog.current_widget.option_buttons["false"].click()
+    dialog.next_button.click()
+
+    assert dialog.index == 1
+    assert dialog.previous_button.isEnabled()
+
+    dialog.previous_button.click()
+
+    assert dialog.index == 0
+    assert dialog.current_widget.option_buttons["false"].isChecked()
+    assert not dialog.answer_panel.isHidden()
+
+
+def test_sequential_long_explanation_scrolls_as_one_panel(qtbot, tmp_path):
+    database = _database_with_two_questions(tmp_path)
+    first = database.list_questions()[0]
+    first.explanation = "逐行说明机械原理。\n" * 80
+    database.update_question(first.id, first)
+    session = QuizService(database).create_session({}, None, QuizMode.SEQUENTIAL)
+    dialog = QuizDialog(database, session)
+    dialog.resize(960, 680)
+    qtbot.addWidget(dialog)
+    dialog.show()
+
+    dialog.current_widget.option_buttons["false"].click()
+    QApplication.processEvents()
+
+    assert dialog.answer_scroll.widget() is dialog.answer_panel
+    assert dialog.answer_scroll.horizontalScrollBar().maximum() == 0
+    assert dialog.answer_scroll.verticalScrollBar().maximum() > 0
+    assert dialog.answer_panel.explanation.verticalScrollBar().maximum() == 0
+
+
 def test_exam_true_false_click_does_not_grade_before_submission(qtbot, tmp_path):
     database = _database_with_two_questions(tmp_path)
     session = QuizService(database).create_session({}, 2, QuizMode.EXAM, seed=2)

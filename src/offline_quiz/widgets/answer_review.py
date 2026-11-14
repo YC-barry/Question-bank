@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+from math import ceil
 from typing import Any
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, QTimer, Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QSizePolicy,
     QTextBrowser,
     QVBoxLayout,
     QWidget,
@@ -34,11 +36,51 @@ def _format_answer(answer: Any, question: Question) -> str:
     return "未作答" if answer in (None, "") else str(answer)
 
 
+class ExpandingTextBrowser(QTextBrowser):
+    """Read-only rich text that grows vertically instead of clipping content."""
+
+    content_height_changed = Signal()
+
+    def __init__(self, minimum_height: int, parent: QWidget | None = None):
+        super().__init__(parent)
+        self._minimum_content_height = minimum_height
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._height_timer = QTimer(self)
+        self._height_timer.setSingleShot(True)
+        self._height_timer.timeout.connect(self.update_content_height)
+        self.document().documentLayout().documentSizeChanged.connect(
+            self._schedule_height_update
+        )
+        self.setMinimumHeight(minimum_height)
+
+    def _schedule_height_update(self, *_args) -> None:
+        self._height_timer.start(0)
+
+    def update_content_height(self) -> None:
+        document_height = ceil(self.document().size().height())
+        frame = self.frameWidth() * 2
+        margins = self.contentsMargins()
+        height = document_height + frame + margins.top() + margins.bottom() + 2
+        target_height = max(self._minimum_content_height, height)
+        if target_height != self.height():
+            self.setFixedHeight(target_height)
+            self.content_height_changed.emit()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._schedule_height_update()
+
+
 class AnswerReviewPanel(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("answerReviewPanel")
         self.setMinimumHeight(240)
+        self._fit_timer = QTimer(self)
+        self._fit_timer.setSingleShot(True)
+        self._fit_timer.timeout.connect(self._fit_to_contents)
         root = QVBoxLayout(self)
         root.setContentsMargins(20, 16, 20, 16)
         root.setSpacing(10)
@@ -67,17 +109,17 @@ class AnswerReviewPanel(QFrame):
         user_column = QVBoxLayout()
         user_title = QLabel("我的答案")
         user_title.setObjectName("reviewCaption")
-        self.user_answer = QTextBrowser()
+        self.user_answer = ExpandingTextBrowser(54)
         self.user_answer.setObjectName("userAnswer")
-        self.user_answer.setMaximumHeight(82)
+        self.user_answer.content_height_changed.connect(self._schedule_fit)
         user_column.addWidget(user_title)
         user_column.addWidget(self.user_answer)
         correct_column = QVBoxLayout()
         correct_title = QLabel("正确答案")
         correct_title.setObjectName("reviewCaption")
-        self.correct_answer = QTextBrowser()
+        self.correct_answer = ExpandingTextBrowser(54)
         self.correct_answer.setObjectName("correctAnswer")
-        self.correct_answer.setMaximumHeight(96)
+        self.correct_answer.content_height_changed.connect(self._schedule_fit)
         answer_font = QFont(self.correct_answer.font())
         answer_font.setPointSize(15)
         answer_font.setBold(True)
@@ -90,9 +132,9 @@ class AnswerReviewPanel(QFrame):
 
         explanation_title = QLabel("答案解析 / 解题过程")
         explanation_title.setObjectName("reviewCaption")
-        self.explanation = QTextBrowser()
+        self.explanation = ExpandingTextBrowser(90)
         self.explanation.setObjectName("reviewExplanation")
-        self.explanation.setMinimumHeight(90)
+        self.explanation.content_height_changed.connect(self._schedule_fit)
         root.addWidget(explanation_title)
         root.addWidget(self.explanation, 1)
         self.media_host = QWidget()
@@ -100,6 +142,16 @@ class AnswerReviewPanel(QFrame):
         self.media_layout.setContentsMargins(0, 0, 0, 0)
         root.addWidget(self.media_host)
         self.hide()
+
+    def _fit_to_contents(self) -> None:
+        self.setMinimumHeight(240)
+        if self.layout() is not None:
+            self.layout().activate()
+        self.setMinimumHeight(max(240, self.sizeHint().height()))
+        self.updateGeometry()
+
+    def _schedule_fit(self) -> None:
+        self._fit_timer.start(0)
 
     def clear_result(self) -> None:
         self.status_label.clear()
@@ -111,6 +163,7 @@ class AnswerReviewPanel(QFrame):
             item = self.media_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+        self.setMinimumHeight(240)
         self.hide()
 
     def show_result(self, question: Question, grade: GradeResult, user_answer: Any) -> None:
@@ -141,6 +194,9 @@ class AnswerReviewPanel(QFrame):
         if question.solution and question.solution not in explanation_parts:
             explanation_parts.append(question.solution)
         self.explanation.setPlainText("\n\n".join(explanation_parts) or "原题暂未提供解析。")
+        self.user_answer.update_content_height()
+        self.correct_answer.update_content_height()
+        self.explanation.update_content_height()
         while self.media_layout.count():
             item = self.media_layout.takeAt(0)
             if item.widget():
@@ -150,3 +206,5 @@ class AnswerReviewPanel(QFrame):
         self.style().unpolish(self)
         self.style().polish(self)
         self.show()
+        self._fit_to_contents()
+        self._fit_timer.start(0)

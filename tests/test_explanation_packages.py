@@ -58,6 +58,16 @@ def test_normalized_stems_match_imported_question_shapes_exactly():
     ) == normalize_stem(QuestionType.TRUE_FALSE, "滚动轴承属于轴承。")
 
 
+def test_fill_stem_normalization_accepts_adjacent_answer_parentheses_as_one_blank():
+    assert normalize_stem(
+        QuestionType.FILL_BLANK,
+        "牙底（大径）为（细）实线，（牙顶）（小径）、终止线为（粗）实线。",
+    ) == normalize_stem(
+        QuestionType.FILL_BLANK,
+        "牙底____为____实线，________、终止线为____实线。",
+    )
+
+
 def test_normalize_answer_is_type_aware_and_deterministic():
     assert normalize_answer(QuestionType.FILL_BLANK, "甲；乙") == normalize_answer(
         QuestionType.FILL_BLANK, [["甲"], ["乙"]]

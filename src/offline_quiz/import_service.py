@@ -5,6 +5,7 @@ from pathlib import Path
 from .database import Database
 from .doc_converter import DocConversionError, DocConversionService
 from .domain import DuplicatePolicy, ImportIssue, ImportResult, ImportSummary
+from .explanation_packages import ExplanationPackage, parse_explanation_docx
 from .importers import ExcelImporter, PowerPointImporter, WordImporter
 from .sectioned_word_importer import SectionedWordImporter
 
@@ -43,6 +44,12 @@ class ImportService:
                 issues=[ImportIssue(str(source), "文件", "格式", "仅支持 .doc、.docx、.xlsx 和 .pptx 文件")],
             )
         return importer().parse(source)
+
+    def preview_explanation(self, path: str | Path) -> ExplanationPackage:
+        source = Path(path)
+        if source.suffix.lower() != ".docx":
+            raise ValueError("解析资料仅支持 .docx Word 文件")
+        return parse_explanation_docx(source)
 
     def commit(self, result: ImportResult, duplicate_policy: DuplicatePolicy) -> ImportSummary:
         if result.has_errors:

@@ -1,6 +1,7 @@
 from offline_quiz.database import Database
 from offline_quiz.domain import Question, QuestionType
 from offline_quiz.ui import MainWindow, QuestionWidget, ReviewDialog
+from offline_quiz.widgets.exam_review import ExamReviewDialog
 from PySide6.QtWidgets import QTableWidget
 
 
@@ -44,17 +45,20 @@ def test_fill_blank_widget_creates_one_input_per_blank(qtbot):
     assert widget.answer() == ["北京", "中国"]
 
 
-def test_review_dialog_displays_option_text_and_explanation(qtbot):
+def test_review_dialog_uses_readable_per_question_component(qtbot):
     dialog = ReviewDialog("回看", [{
         "snapshot": {
+            "bank_name": "示例", "question_type": "单选",
             "stem": "示例题", "answer": "A", "options": {"A": "甲", "B": "乙"},
             "points": 5, "explanation": "这是解析",
         },
         "user_answer": "B", "is_correct": 0, "earned_points": 0,
     }])
     qtbot.addWidget(dialog)
-    table = dialog.findChild(QTableWidget)
 
-    assert table.columnCount() == 7
-    assert "A. 甲" in table.item(0, 3).text()
-    assert table.item(0, 6).text() == "这是解析"
+    assert isinstance(dialog, ExamReviewDialog)
+    assert dialog.findChild(QTableWidget) is None
+    assert dialog.stem_view.toPlainText() == "示例题"
+    assert "A. 甲" in dialog.options_view.toPlainText()
+    assert dialog.answer_panel.correct_answer.toPlainText() == "A. 甲"
+    assert dialog.answer_panel.explanation.toPlainText() == "这是解析"

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QRect
-from PySide6.QtWidgets import QApplication, QLabel, QPushButton, QScrollArea, QWidget
+from PySide6.QtWidgets import QApplication, QLabel, QMessageBox, QPushButton, QScrollArea, QWidget
 
 from offline_quiz.app import apply_application_style
 from offline_quiz.database import Database
@@ -289,6 +289,111 @@ def test_sequential_true_false_click_grades_and_reveals_correct_answer(qtbot, tm
     assert dialog.answer_panel.correct_answer.toPlainText() == "对"
     assert not dialog.current_widget.option_buttons["false"].isEnabled()
     assert dialog.submit_one_button.isHidden()
+
+
+def test_sequential_correct_answer_auto_advances_after_feedback_delay(qtbot, tmp_path):
+    database = _database_with_two_questions(tmp_path)
+    session = QuizService(database).create_session({}, None, QuizMode.SEQUENTIAL)
+    dialog = QuizDialog(database, session)
+    qtbot.addWidget(dialog)
+
+    dialog.current_widget.option_buttons["true"].click()
+
+    assert dialog.index == 0
+    assert not dialog.answer_panel.isHidden()
+    qtbot.waitUntil(lambda: dialog.index == 1, timeout=900)
+    assert dialog.answer_panel.isHidden()
+
+
+def test_sequential_wrong_answer_stays_and_shows_review(qtbot, tmp_path):
+    database = _database_with_two_questions(tmp_path)
+    session = QuizService(database).create_session({}, None, QuizMode.SEQUENTIAL)
+    dialog = QuizDialog(database, session)
+    qtbot.addWidget(dialog)
+
+    dialog.current_widget.option_buttons["false"].click()
+    qtbot.wait(500)
+
+    assert dialog.index == 0
+    assert not dialog.answer_panel.isHidden()
+    assert dialog.answer_panel.user_answer.toPlainText()
+    assert dialog.answer_panel.correct_answer.toPlainText()
+    assert dialog.answer_panel.explanation.toPlainText()
+
+
+def test_sequential_final_correct_answer_stays_and_shows_completion(qtbot, tmp_path, monkeypatch):
+    database = _database_with_two_questions(tmp_path)
+    session = QuizService(database).create_session({}, None, QuizMode.SEQUENTIAL)
+    dialog = QuizDialog(database, session)
+    qtbot.addWidget(dialog)
+    messages: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "information",
+        lambda _parent, title, text: messages.append((title, text)) or QMessageBox.Ok,
+    )
+    dialog.current_widget.option_buttons["true"].click()
+    dialog.next()
+
+    dialog.current_widget.option_buttons["true"].click()
+    qtbot.wait(500)
+
+    assert dialog.index == 1
+    assert not dialog.answer_panel.isHidden()
+    assert messages
+
+
+def test_scheduled_auto_advance_does_not_skip_after_manual_navigation(qtbot, tmp_path):
+    database = _database_with_two_questions(tmp_path)
+    bank_id = database.get_banks()[0]["id"]
+    database.upsert_question(
+        bank_id,
+        Question(
+            bank_name="机修基础",
+            question_type=QuestionType.TRUE_FALSE,
+            stem="第三题",
+            answer=True,
+            source_order=3,
+        ),
+    )
+    session = QuizService(database).create_session({}, None, QuizMode.SEQUENTIAL)
+    dialog = QuizDialog(database, session)
+    qtbot.addWidget(dialog)
+
+    dialog.current_widget.option_buttons["true"].click()
+    dialog.next()
+    qtbot.wait(500)
+
+    assert dialog.index == 1
+
+
+def test_scheduled_auto_advance_is_cancelled_after_forward_and_back_navigation(
+    qtbot, tmp_path
+):
+    database = _database_with_two_questions(tmp_path)
+    session = QuizService(database).create_session({}, None, QuizMode.SEQUENTIAL)
+    dialog = QuizDialog(database, session)
+    qtbot.addWidget(dialog)
+
+    dialog.current_widget.option_buttons["true"].click()
+    dialog.next()
+    dialog.question_navigator.buttons[0].click()
+    qtbot.wait(500)
+
+    assert dialog.index == 0
+
+
+def test_exam_correct_selection_never_auto_advances(qtbot, tmp_path):
+    database = _database_with_two_questions(tmp_path)
+    session = QuizService(database).create_session({}, 2, QuizMode.EXAM, seed=4)
+    dialog = QuizDialog(database, session)
+    qtbot.addWidget(dialog)
+
+    dialog.current_widget.option_buttons["true"].click()
+    qtbot.wait(500)
+
+    assert dialog.index == 0
+    assert session.results == {}
 
 
 def test_sequential_navigator_restores_previous_answer_without_saving_again(qtbot, tmp_path):

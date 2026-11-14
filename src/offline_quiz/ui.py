@@ -4,7 +4,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QRect, QSize, Qt, QUrl, Signal
+from PySide6.QtCore import QRect, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -52,6 +52,8 @@ from .templates import TemplateService
 from .theme import ThemeTokens, apply_soft_shadow, build_app_style
 from .widgets.media_view import MediaView
 from .widgets.answer_review import AnswerReviewPanel
+from .widgets.explanation_manager import ExplanationManagerDialog
+from .widgets.exam_review import ExamReviewDialog
 from .widgets.learning_charts import ProgressRing, TrendChart
 from .widgets.question_navigator import QuestionNavigator
 from .widgets.question_type_selector import QuestionTypeSelector
@@ -377,8 +379,11 @@ class BankPage(QWidget):
         self.import_button = QPushButton("导入 Word / PPT / Excel")
         self.import_button.setObjectName("primary")
         self.import_button.clicked.connect(self.import_files)
+        self.explanation_button = QPushButton("解析资料")
+        self.explanation_button.clicked.connect(self.manage_explanations)
         top.addWidget(title)
         top.addStretch()
+        top.addWidget(self.explanation_button)
         top.addWidget(self.import_button)
         layout.addLayout(top)
         controls = QHBoxLayout()
@@ -406,6 +411,12 @@ class BankPage(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         layout.addWidget(self.table)
         self.refresh()
+
+    def manage_explanations(self) -> None:
+        dialog = ExplanationManagerDialog(self.database, self)
+        dialog.packages_changed.connect(self.data_changed.emit)
+        dialog.exec()
+        self.refresh_questions()
 
     def refresh(self) -> None:
         selected = self.bank_combo.currentData()
@@ -490,7 +501,10 @@ class BankPage(QWidget):
         row = self.table.currentRow()
         if row < 0:
             return None
-        return self.database.get_question(int(self.table.item(row, 0).data(Qt.UserRole)))
+        return self.database.get_question(
+            int(self.table.item(row, 0).data(Qt.UserRole)),
+            include_package_explanation=False,
+        )
 
     def add_question(self) -> None:
         bank_id = self.bank_combo.currentData()
@@ -532,83 +546,7 @@ class BankPage(QWidget):
             self.data_changed.emit()
 
 
-class ReviewDialog(QDialog):
-    def __init__(self, title: str, items: list[dict[str, Any]], parent=None):
-        super().__init__(parent)
-        self.items = items
-        self.setWindowTitle(title)
-        self.resize(900, 560)
-        layout = QVBoxLayout(self)
-        self.table = QTableWidget(len(items), 7)
-        self.table.setHorizontalHeaderLabels(
-            ["序号", "题目", "我的答案", "正确答案", "结果", "得分", "解析"]
-        )
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        for row, item in enumerate(items):
-            snapshot = item.get("snapshot", {})
-            values = [
-                row + 1,
-                snapshot.get("stem", ""),
-                display_answer_with_options(snapshot, item.get("user_answer")),
-                display_answer_with_options(snapshot, snapshot.get("answer")),
-                "正确" if item.get("is_correct") else "错误",
-                f"{item.get('earned_points', 0)}/{snapshot.get('points', 0)}",
-                "\n".join(
-                    part
-                    for part in [
-                        snapshot.get("explanation", ""),
-                        (
-                            f"解题过程：{snapshot.get('solution')}"
-                            if snapshot.get("solution")
-                            else ""
-                        ),
-                        (
-                            f"题目附件：{len(snapshot.get('assets') or [])} 个"
-                            if snapshot.get("assets")
-                            else ""
-                        ),
-                    ]
-                    if part
-                ),
-            ]
-            for column, value in enumerate(values):
-                self.table.setItem(row, column, QTableWidgetItem(str(value)))
-        layout.addWidget(self.table)
-
-        details = QGroupBox("题目详情与附件")
-        self.detail_layout = QVBoxLayout(details)
-        layout.addWidget(details)
-        self.table.currentCellChanged.connect(self._show_details)
-        if items:
-            self.table.setCurrentCell(0, 0)
-            self._show_details(0)
-        else:
-            self.detail_layout.addWidget(QLabel("没有可回看的题目。"))
-
-        close = QDialogButtonBox(QDialogButtonBox.Close)
-        close.rejected.connect(self.reject)
-        layout.addWidget(close)
-
-    def _show_details(self, row: int, *_args) -> None:
-        while self.detail_layout.count():
-            item = self.detail_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        if row < 0 or row >= len(self.items):
-            return
-        snapshot = self.items[row].get("snapshot", {})
-        details = QLabel(
-            "解题过程："
-            + (snapshot.get("solution") or snapshot.get("explanation") or "原文未提供")
-        )
-        details.setWordWrap(True)
-        self.detail_layout.addWidget(details)
-        assets = snapshot.get("assets") or []
-        if assets:
-            self.detail_layout.addWidget(MediaView(assets))
-        else:
-            self.detail_layout.addWidget(QLabel("无题目附件。"))
+ReviewDialog = ExamReviewDialog
 
 
 class QuizDialog(QDialog):
@@ -620,6 +558,10 @@ class QuizDialog(QDialog):
         self.index = 0
         self.answers: dict[int, Any] = {}
         self.current_widget: QuestionWidget | None = None
+        self._auto_advance_expected: int | None = None
+        self._auto_advance_timer = QTimer(self)
+        self._auto_advance_timer.setSingleShot(True)
+        self._auto_advance_timer.timeout.connect(self._run_scheduled_auto_advance)
         self.setWindowTitle(session.mode.value)
         self.setMinimumSize(960, 680)
         fit_window_to_available(self, 1180, 780)
@@ -775,21 +717,28 @@ class QuizDialog(QDialog):
             return
         if not self.question_navigator.buttons[index].isEnabled():
             return
+        self._cancel_auto_advance()
         self._save_current()
         self.index = index
         self.show_question()
 
     def previous(self) -> None:
+        self._cancel_auto_advance()
         self._save_current()
         if self.index > 0:
             self.index -= 1
             self.show_question()
 
     def next(self) -> None:
+        self._cancel_auto_advance()
         self._save_current()
         if self.index < len(self.session.questions) - 1:
             self.index += 1
             self.show_question()
+
+    def _cancel_auto_advance(self) -> None:
+        self._auto_advance_timer.stop()
+        self._auto_advance_expected = None
 
     def submit_one(self) -> None:
         pending = self.session.results.get(self.index)
@@ -802,10 +751,38 @@ class QuizDialog(QDialog):
         if grade.requires_confirmation:
             self._review_pending()
         self.show_question()
+        if (
+            self.session.mode is QuizMode.SEQUENTIAL
+            and grade.is_correct
+            and not grade.requires_confirmation
+            and self.index < len(self.session.questions) - 1
+        ):
+            self._auto_advance_expected = self.index
+            self._auto_advance_timer.start(350)
         if len(self.session.results) == len(self.session.questions) and not any(
             item.requires_confirmation for item in self.session.results.values()
         ):
             QMessageBox.information(self, "刷题完成", "已完成全部题目，可逐题查看答案。")
+
+    def _run_scheduled_auto_advance(self) -> None:
+        expected_index = self._auto_advance_expected
+        self._auto_advance_expected = None
+        if expected_index is not None:
+            self._auto_advance(expected_index)
+
+    def _auto_advance(self, expected_index: int) -> None:
+        if self.session.mode is not QuizMode.SEQUENTIAL or self.index != expected_index:
+            return
+        grade = self.session.results.get(expected_index)
+        if (
+            grade is None
+            or not grade.is_correct
+            or grade.requires_confirmation
+            or expected_index >= len(self.session.questions) - 1
+        ):
+            return
+        self.index += 1
+        self.show_question()
 
     def submit_exam(self) -> None:
         if any(grade.requires_confirmation for grade in self.session.results.values()):

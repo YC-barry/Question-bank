@@ -3,7 +3,7 @@ from __future__ import annotations
 from io import BytesIO
 
 from PIL import Image
-from PySide6.QtWidgets import QLabel, QTextEdit
+from PySide6.QtWidgets import QLabel, QTextBrowser, QTextEdit
 
 from offline_quiz.domain import (
     GradeResult,
@@ -134,6 +134,9 @@ def test_history_review_renders_snapshot_media_and_solution(qtbot):
 
     media = dialog.findChild(MediaView)
     all_text = "\n".join(label.text() for label in dialog.findChildren(QLabel))
+    all_text += "\n" + "\n".join(
+        browser.toPlainText() for browser in dialog.findChildren(QTextBrowser)
+    )
 
     assert media is not None and media.isVisibleTo(dialog)
     assert "计算过程" in all_text

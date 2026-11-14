@@ -8,9 +8,16 @@ import sqlite3
 from typing import Any, Iterator
 
 from .domain import DuplicatePolicy, ImportSummary, Question, QuestionAsset, QuestionType
+from .explanation_packages import (
+    DuplicateExplanationPackage,
+    ExplanationPackage,
+    classify_mechanic_source,
+    normalize_answer,
+    normalize_stem,
+)
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 class Database:
@@ -57,7 +64,7 @@ class Database:
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_version'"
             ).fetchone()
             if not has_version_table:
-                self._create_v2_schema(connection)
+                self._create_v3_schema(connection)
                 connection.commit()
                 return
             row = connection.execute("SELECT version FROM schema_version LIMIT 1").fetchone()
@@ -66,25 +73,30 @@ class Database:
             version = int(row["version"])
             if version > SCHEMA_VERSION:
                 raise RuntimeError("数据库版本高于当前程序，无法打开")
-            if version == 1:
+            if version < SCHEMA_VERSION:
                 connection.execute("BEGIN")
                 try:
-                    self._migrate_v1_to_v2(connection)
-                    connection.execute("UPDATE schema_version SET version=2")
+                    if version == 1:
+                        self._migrate_v1_to_v2(connection)
+                        version = 2
+                    if version == 2:
+                        self._migrate_v2_to_v3(connection)
+                        version = 3
+                    connection.execute("UPDATE schema_version SET version=?", (version,))
                     connection.commit()
                 except Exception:
                     connection.rollback()
                     raise
-            elif version != SCHEMA_VERSION:
+            if version != SCHEMA_VERSION:
                 raise RuntimeError(f"不支持的数据库版本：{version}")
         finally:
             connection.close()
 
-    def _create_v2_schema(self, connection: sqlite3.Connection) -> None:
+    def _create_v3_schema(self, connection: sqlite3.Connection) -> None:
         connection.executescript(
             """
                 CREATE TABLE schema_version (version INTEGER NOT NULL);
-                INSERT INTO schema_version(version) VALUES (2);
+                INSERT INTO schema_version(version) VALUES (3);
 
                 CREATE TABLE banks (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -155,6 +167,33 @@ class Database:
                     last_wrong_at TEXT NOT NULL,
                     mastered INTEGER NOT NULL DEFAULT 0
                 );
+
+                CREATE TABLE explanation_packages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    filename TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    level TEXT NOT NULL,
+                    content_hash TEXT NOT NULL UNIQUE,
+                    imported_at TEXT NOT NULL
+                );
+
+                CREATE TABLE explanation_entries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    package_id INTEGER NOT NULL REFERENCES explanation_packages(id) ON DELETE CASCADE,
+                    question_type TEXT NOT NULL,
+                    source_number INTEGER NOT NULL,
+                    original_stem TEXT NOT NULL,
+                    stem_fingerprint TEXT NOT NULL,
+                    normalized_answer TEXT NOT NULL,
+                    explanation TEXT NOT NULL,
+                    UNIQUE(package_id, question_type, source_number)
+                );
+
+                CREATE INDEX idx_explanation_entries_match
+                    ON explanation_entries(question_type, stem_fingerprint, normalized_answer);
+                CREATE INDEX idx_explanation_entries_package
+                    ON explanation_entries(package_id, source_number);
             """
         )
 
@@ -177,6 +216,40 @@ class Database:
         )
         connection.execute(
             "CREATE INDEX idx_question_assets_order ON question_assets(question_id, position, id)"
+        )
+
+    def _migrate_v2_to_v3(self, connection: sqlite3.Connection) -> None:
+        connection.execute(
+            """CREATE TABLE explanation_packages (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   name TEXT NOT NULL,
+                   filename TEXT NOT NULL,
+                   subject TEXT NOT NULL,
+                   level TEXT NOT NULL,
+                   content_hash TEXT NOT NULL UNIQUE,
+                   imported_at TEXT NOT NULL
+               )"""
+        )
+        connection.execute(
+            """CREATE TABLE explanation_entries (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   package_id INTEGER NOT NULL REFERENCES explanation_packages(id) ON DELETE CASCADE,
+                   question_type TEXT NOT NULL,
+                   source_number INTEGER NOT NULL,
+                   original_stem TEXT NOT NULL,
+                   stem_fingerprint TEXT NOT NULL,
+                   normalized_answer TEXT NOT NULL,
+                   explanation TEXT NOT NULL,
+                   UNIQUE(package_id, question_type, source_number)
+               )"""
+        )
+        connection.execute(
+            """CREATE INDEX idx_explanation_entries_match
+               ON explanation_entries(question_type, stem_fingerprint, normalized_answer)"""
+        )
+        connection.execute(
+            """CREATE INDEX idx_explanation_entries_package
+               ON explanation_entries(package_id, source_number)"""
         )
 
     def ensure_bank(self, name: str, source_filename: str = "") -> int:
@@ -206,6 +279,180 @@ class Database:
                    GROUP BY b.id ORDER BY b.name"""
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def import_explanation_package(
+        self,
+        package: ExplanationPackage,
+        *,
+        replace_package_id: int | None = None,
+    ) -> int:
+        with self.transaction() as connection:
+            duplicate = connection.execute(
+                "SELECT id, filename FROM explanation_packages WHERE content_hash=?",
+                (package.content_hash,),
+            ).fetchone()
+            if duplicate is not None and replace_package_id is None:
+                raise DuplicateExplanationPackage(
+                    int(duplicate["id"]), str(duplicate["filename"])
+                )
+            if duplicate is not None and int(duplicate["id"]) != replace_package_id:
+                raise DuplicateExplanationPackage(
+                    int(duplicate["id"]), str(duplicate["filename"])
+                )
+            if replace_package_id is not None:
+                existing = connection.execute(
+                    "SELECT id FROM explanation_packages WHERE id=?",
+                    (replace_package_id,),
+                ).fetchone()
+                if existing is None:
+                    raise ValueError("要替换的解析资料不存在")
+                connection.execute(
+                    "DELETE FROM explanation_packages WHERE id=?",
+                    (replace_package_id,),
+                )
+            cursor = connection.execute(
+                """INSERT INTO explanation_packages(
+                       name, filename, subject, level, content_hash, imported_at
+                   ) VALUES (?, ?, ?, ?, ?, ?)""",
+                (
+                    package.name,
+                    package.filename,
+                    package.subject,
+                    package.level,
+                    package.content_hash,
+                    datetime.now().isoformat(timespec="microseconds"),
+                ),
+            )
+            package_id = int(cursor.lastrowid)
+            connection.executemany(
+                """INSERT INTO explanation_entries(
+                       package_id, question_type, source_number, original_stem,
+                       stem_fingerprint, normalized_answer, explanation
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                [
+                    (
+                        package_id,
+                        entry.question_type.value,
+                        entry.source_number,
+                        entry.original_stem,
+                        entry.stem_fingerprint,
+                        entry.normalized_answer,
+                        entry.explanation,
+                    )
+                    for entry in package.entries
+                ],
+            )
+            return package_id
+
+    def delete_explanation_package(self, package_id: int) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                "DELETE FROM explanation_packages WHERE id=?", (package_id,)
+            )
+
+    def find_explanation_package_by_hash(
+        self, content_hash: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM explanation_packages WHERE content_hash=?",
+                (content_hash,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def _question_match_key(
+        self, question: Question, source_filename: str = ""
+    ) -> tuple[str, str, str, str, str] | None:
+        classification = classify_mechanic_source(
+            question.bank_name, source_filename
+        )
+        if classification is None:
+            return None
+        subject, level = classification
+        try:
+            answer = normalize_answer(question.question_type, question.answer)
+        except ValueError:
+            return None
+        return (
+            subject,
+            level,
+            question.question_type.value,
+            normalize_stem(question.question_type, question.stem),
+            answer,
+        )
+
+    def _resolve_explanation_with_connection(
+        self,
+        connection: sqlite3.Connection,
+        question: Question,
+        source_filename: str = "",
+    ) -> str | None:
+        key = self._question_match_key(question, source_filename)
+        if key is None:
+            return None
+        row = connection.execute(
+            """SELECT entry.explanation
+               FROM explanation_entries entry
+               JOIN explanation_packages package ON package.id=entry.package_id
+               WHERE package.subject=? AND package.level=?
+                 AND entry.question_type=? AND entry.stem_fingerprint=?
+                 AND entry.normalized_answer=?
+               ORDER BY package.imported_at DESC, package.id DESC, entry.id DESC
+               LIMIT 1""",
+            key,
+        ).fetchone()
+        return str(row["explanation"]) if row else None
+
+    def list_explanation_packages(self) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            packages = connection.execute(
+                "SELECT * FROM explanation_packages ORDER BY imported_at DESC, id DESC"
+            ).fetchall()
+            entries = connection.execute(
+                "SELECT * FROM explanation_entries ORDER BY package_id, id"
+            ).fetchall()
+            question_rows = connection.execute(
+                """SELECT q.*, b.name AS bank_name, b.source_filename AS bank_source_filename
+                   FROM questions q JOIN banks b ON b.id=q.bank_id"""
+            ).fetchall()
+        available: dict[tuple[str, str, str, str], set[str]] = {}
+        for row in question_rows:
+            question = self._row_to_question(row)
+            key = self._question_match_key(
+                question, str(row["bank_source_filename"])
+            )
+            if key is not None:
+                available.setdefault(key[:4], set()).add(key[4])
+        entries_by_package: dict[int, list[sqlite3.Row]] = {}
+        for entry in entries:
+            entries_by_package.setdefault(int(entry["package_id"]), []).append(entry)
+        results: list[dict[str, Any]] = []
+        for package in packages:
+            item = dict(package)
+            matched = pending = conflicts = 0
+            package_entries = entries_by_package.get(int(package["id"]), [])
+            for entry in package_entries:
+                base = (
+                    str(package["subject"]),
+                    str(package["level"]),
+                    str(entry["question_type"]),
+                    str(entry["stem_fingerprint"]),
+                )
+                answers = available.get(base)
+                if not answers:
+                    pending += 1
+                elif str(entry["normalized_answer"]) in answers:
+                    matched += 1
+                else:
+                    conflicts += 1
+            item.update(
+                total_count=len(package_entries),
+                matched_count=matched,
+                pending_count=pending,
+                conflict_count=conflicts,
+            )
+            results.append(item)
+        return results
 
     def upsert_question(self, bank_id: int, question: Question, overwrite: bool = False) -> int:
         with self.connection() as connection:
@@ -356,14 +603,27 @@ class Database:
             source_order=int(row["source_order"]),
         )
 
-    def get_question(self, question_id: int) -> Question | None:
+    def get_question(
+        self, question_id: int, *, include_package_explanation: bool = True
+    ) -> Question | None:
         with self.connection() as connection:
             row = connection.execute(
-                "SELECT q.*, b.name AS bank_name FROM questions q JOIN banks b ON b.id=q.bank_id WHERE q.id=?",
+                """SELECT q.*, b.name AS bank_name,
+                          b.source_filename AS bank_source_filename
+                   FROM questions q JOIN banks b ON b.id=q.bank_id WHERE q.id=?""",
                 (question_id,),
             ).fetchone()
             assets = self._load_assets(connection, question_id) if row else []
-        return self._row_to_question(row, assets) if row else None
+            if row is None:
+                return None
+            question = self._row_to_question(row, assets)
+            if include_package_explanation:
+                package_explanation = self._resolve_explanation_with_connection(
+                    connection, question, str(row["bank_source_filename"])
+                )
+                if package_explanation is not None:
+                    question.explanation = package_explanation
+            return question
 
     def find_question_id(self, bank_id: int, fingerprint: str) -> int | None:
         with self.connection() as connection:
@@ -404,13 +664,21 @@ class Database:
         join = "JOIN wrong_questions w ON w.question_id=q.id AND w.mastered=0" if wrong_only else ""
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         order = "ORDER BY q.bank_id, q.source_order, q.id" if ordered else "ORDER BY q.id"
-        query = f"SELECT q.*, b.name AS bank_name FROM questions q JOIN banks b ON b.id=q.bank_id {join} {where} {order}"
+        query = f"SELECT q.*, b.name AS bank_name, b.source_filename AS bank_source_filename FROM questions q JOIN banks b ON b.id=q.bank_id {join} {where} {order}"
         with self.connection() as connection:
             rows = connection.execute(query, params).fetchall()
-            assets_by_id = {
-                int(row["id"]): self._load_assets(connection, int(row["id"])) for row in rows
-            }
-        return [self._row_to_question(row, assets_by_id[int(row["id"])]) for row in rows]
+            questions: list[Question] = []
+            for row in rows:
+                question = self._row_to_question(
+                    row, self._load_assets(connection, int(row["id"]))
+                )
+                package_explanation = self._resolve_explanation_with_connection(
+                    connection, question, str(row["bank_source_filename"])
+                )
+                if package_explanation is not None:
+                    question.explanation = package_explanation
+                questions.append(question)
+        return questions
 
     def delete_question(self, question_id: int) -> None:
         with self.connection() as connection:
@@ -479,6 +747,13 @@ class Database:
         is_correct: bool,
         earned_points: int,
     ) -> None:
+        snapshot = question.snapshot()
+        if question.id is not None:
+            source_row = connection.execute(
+                "SELECT explanation FROM questions WHERE id=?", (question.id,)
+            ).fetchone()
+            if source_row is not None:
+                snapshot["explanation"] = str(source_row["explanation"])
         connection.execute(
             """INSERT INTO session_items(
                    session_id, question_id, snapshot_json, user_answer_json,
@@ -487,7 +762,7 @@ class Database:
             (
                 session_id,
                 question.id,
-                json.dumps(question.snapshot(), ensure_ascii=False),
+                json.dumps(snapshot, ensure_ascii=False),
                 json.dumps(user_answer, ensure_ascii=False),
                 int(is_correct),
                 earned_points,
@@ -541,16 +816,49 @@ class Database:
             items = connection.execute(
                 "SELECT * FROM session_items WHERE session_id=? ORDER BY id", (session_id,)
             ).fetchall()
-        result = dict(row)
-        result["filters"] = json.loads(result.pop("filters_json"))
-        result["items"] = [
-            {
-                **dict(item),
-                "snapshot": json.loads(item["snapshot_json"]),
-                "user_answer": json.loads(item["user_answer_json"]),
-            }
-            for item in items
-        ]
+            result = dict(row)
+            result["filters"] = json.loads(result.pop("filters_json"))
+            result["items"] = []
+            for item in items:
+                snapshot = json.loads(item["snapshot_json"])
+                source_filename = ""
+                if item["question_id"] is not None:
+                    source_row = connection.execute(
+                        """SELECT b.source_filename
+                           FROM questions q JOIN banks b ON b.id=q.bank_id
+                           WHERE q.id=?""",
+                        (item["question_id"],),
+                    ).fetchone()
+                    if source_row is not None:
+                        source_filename = str(source_row["source_filename"])
+                try:
+                    historical_question = Question(
+                        id=snapshot.get("id"),
+                        bank_id=snapshot.get("bank_id"),
+                        bank_name=str(snapshot.get("bank_name") or ""),
+                        question_type=QuestionType(snapshot["question_type"]),
+                        stem=str(snapshot.get("stem") or ""),
+                        options=dict(snapshot.get("options") or {}),
+                        answer=snapshot.get("answer"),
+                        explanation=str(snapshot.get("explanation") or ""),
+                        solution=str(snapshot.get("solution") or ""),
+                        points=int(snapshot.get("points") or 0),
+                    )
+                except (KeyError, TypeError, ValueError):
+                    historical_question = None
+                if historical_question is not None:
+                    package_explanation = self._resolve_explanation_with_connection(
+                        connection, historical_question, source_filename
+                    )
+                    if package_explanation is not None:
+                        snapshot["explanation"] = package_explanation
+                result["items"].append(
+                    {
+                        **dict(item),
+                        "snapshot": snapshot,
+                        "user_answer": json.loads(item["user_answer_json"]),
+                    }
+                )
         return result
 
     def list_sessions(self) -> list[dict[str, Any]]:

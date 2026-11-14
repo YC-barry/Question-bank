@@ -96,14 +96,17 @@ def test_v1_database_migrates_to_v2_without_losing_questions(tmp_path):
 
     database = Database(path)
 
-    assert SCHEMA_VERSION == 2
+    assert SCHEMA_VERSION == 3
     assert database.get_question(1).stem == "旧题仍保留"
     with sqlite3.connect(path) as connection:
-        assert connection.execute("SELECT version FROM schema_version").fetchone()[0] == 2
+        assert connection.execute("SELECT version FROM schema_version").fetchone()[0] == 3
         columns = {row[1] for row in connection.execute("PRAGMA table_info(questions)")}
         assert {"solution", "requires_manual_review"}.issubset(columns)
         assert connection.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='question_assets'"
+        ).fetchone()
+        assert connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='explanation_packages'"
         ).fetchone()
 
 
@@ -156,6 +159,37 @@ def test_failed_migration_rolls_back_schema_and_version(tmp_path, monkeypatch):
         assert connection.execute("SELECT version FROM schema_version").fetchone()[0] == 1
         columns = {row[1] for row in connection.execute("PRAGMA table_info(questions)")}
         assert "transient" not in columns
+
+
+def test_failure_after_v3_ddl_rolls_back_entire_v1_upgrade_and_can_retry(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "v1-retry.db"
+    _create_v1_database(path)
+    original = Database._migrate_v2_to_v3
+
+    def fail_after_v3(self, connection):
+        original(self, connection)
+        raise RuntimeError("simulated failure after v3 DDL")
+
+    monkeypatch.setattr(Database, "_migrate_v2_to_v3", fail_after_v3)
+
+    with pytest.raises(RuntimeError, match="after v3 DDL"):
+        Database(path)
+
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("SELECT version FROM schema_version").fetchone()[0] == 1
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(questions)")}
+        assert "solution" not in columns
+        assert connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='explanation_packages'"
+        ).fetchone() is None
+
+    monkeypatch.undo()
+    database = Database(path)
+    assert database.get_question(1).stem == "旧题仍保留"
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("SELECT version FROM schema_version").fetchone()[0] == 3
 
 
 def test_overwrite_replaces_assets_without_changing_question_id(tmp_path):

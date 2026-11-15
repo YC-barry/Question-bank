@@ -1,5 +1,5 @@
 #define MyAppName "岿枢题典"
-#define MyAppVersion "1.5.1-test8"
+#define MyAppVersion "1.6.0-test9"
 #define MyAppPublisher "KuishuQuiz"
 #define MyAppExeName "KuishuQuiz.exe"
 

@@ -96,10 +96,10 @@ def test_v1_database_migrates_to_v2_without_losing_questions(tmp_path):
 
     database = Database(path)
 
-    assert SCHEMA_VERSION == 3
+    assert SCHEMA_VERSION == 4
     assert database.get_question(1).stem == "旧题仍保留"
     with sqlite3.connect(path) as connection:
-        assert connection.execute("SELECT version FROM schema_version").fetchone()[0] == 3
+        assert connection.execute("SELECT version FROM schema_version").fetchone()[0] == 4
         columns = {row[1] for row in connection.execute("PRAGMA table_info(questions)")}
         assert {"solution", "requires_manual_review"}.issubset(columns)
         assert connection.execute(
@@ -189,7 +189,7 @@ def test_failure_after_v3_ddl_rolls_back_entire_v1_upgrade_and_can_retry(
     database = Database(path)
     assert database.get_question(1).stem == "旧题仍保留"
     with sqlite3.connect(path) as connection:
-        assert connection.execute("SELECT version FROM schema_version").fetchone()[0] == 3
+        assert connection.execute("SELECT version FROM schema_version").fetchone()[0] == 4
 
 
 def test_overwrite_replaces_assets_without_changing_question_id(tmp_path):

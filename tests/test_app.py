@@ -4,8 +4,8 @@ from offline_quiz.backup import BackupService
 from offline_quiz.database import Database
 
 
-def test_user_visible_version_identifies_test8_release():
-    assert __version__ == "1.5.1-test8"
+def test_user_visible_version_identifies_test9_release():
+    assert __version__ == "1.6.0-test9"
 
 
 def test_corrupt_database_opens_recovery_path_without_partial_backup(tmp_path):

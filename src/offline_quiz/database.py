@@ -17,7 +17,7 @@ from .explanation_packages import (
 )
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 class Database:
@@ -64,7 +64,7 @@ class Database:
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_version'"
             ).fetchone()
             if not has_version_table:
-                self._create_v3_schema(connection)
+                self._create_v4_schema(connection)
                 connection.commit()
                 return
             row = connection.execute("SELECT version FROM schema_version LIMIT 1").fetchone()
@@ -82,6 +82,9 @@ class Database:
                     if version == 2:
                         self._migrate_v2_to_v3(connection)
                         version = 3
+                    if version == 3:
+                        self._migrate_v3_to_v4(connection)
+                        version = 4
                     connection.execute("UPDATE schema_version SET version=?", (version,))
                     connection.commit()
                 except Exception:
@@ -92,11 +95,11 @@ class Database:
         finally:
             connection.close()
 
-    def _create_v3_schema(self, connection: sqlite3.Connection) -> None:
+    def _create_v4_schema(self, connection: sqlite3.Connection) -> None:
         connection.executescript(
             """
                 CREATE TABLE schema_version (version INTEGER NOT NULL);
-                INSERT INTO schema_version(version) VALUES (3);
+                INSERT INTO schema_version(version) VALUES (4);
 
                 CREATE TABLE banks (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -194,6 +197,11 @@ class Database:
                     ON explanation_entries(question_type, stem_fingerprint, normalized_answer);
                 CREATE INDEX idx_explanation_entries_package
                     ON explanation_entries(package_id, source_number);
+
+                CREATE TABLE app_settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
             """
         )
 
@@ -250,6 +258,14 @@ class Database:
         connection.execute(
             """CREATE INDEX idx_explanation_entries_package
                ON explanation_entries(package_id, source_number)"""
+        )
+
+    def _migrate_v3_to_v4(self, connection: sqlite3.Connection) -> None:
+        connection.execute(
+            """CREATE TABLE app_settings (
+                   key TEXT PRIMARY KEY,
+                   value TEXT NOT NULL
+               )"""
         )
 
     def ensure_bank(self, name: str, source_filename: str = "") -> int:
@@ -866,11 +882,52 @@ class Database:
             rows = connection.execute("SELECT * FROM sessions ORDER BY id DESC").fetchall()
         return [dict(row) for row in rows]
 
+    def clear_wrong_questions(self) -> int:
+        with self.transaction() as connection:
+            count = int(
+                connection.execute("SELECT COUNT(*) FROM wrong_questions").fetchone()[0]
+            )
+            connection.execute("DELETE FROM wrong_questions")
+        return count
+
+    def clear_practice_history(self) -> int:
+        with self.transaction() as connection:
+            count = int(connection.execute("SELECT COUNT(*) FROM sessions").fetchone()[0])
+            connection.execute("DELETE FROM sessions")
+        return count
+
+    def reset_learning_overview(self) -> int:
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT COALESCE(MAX(id), 0) FROM session_items"
+            ).fetchone()
+            cutoff = int(row[0])
+            connection.execute(
+                """INSERT INTO app_settings(key, value)
+                   VALUES ('learning_overview_after_item_id', ?)
+                   ON CONFLICT(key) DO UPDATE SET value=excluded.value""",
+                (str(cutoff),),
+            )
+        return cutoff
+
+    @staticmethod
+    def _learning_overview_cutoff(connection: sqlite3.Connection) -> int:
+        row = connection.execute(
+            "SELECT value FROM app_settings WHERE key='learning_overview_after_item_id'"
+        ).fetchone()
+        if row is None:
+            return 0
+        try:
+            return max(0, int(row["value"]))
+        except (TypeError, ValueError):
+            return 0
+
     def learning_overview(self, days: int = 7) -> dict[str, Any]:
         days = max(1, int(days))
         today = date.today()
         dates = [today - timedelta(days=offset) for offset in range(days - 1, -1, -1)]
         with self.connection() as connection:
+            cutoff = self._learning_overview_cutoff(connection)
             totals_row = connection.execute(
                 """WITH latest AS (
                        SELECT item.question_id, item.is_correct
@@ -878,7 +935,7 @@ class Database:
                        JOIN (
                            SELECT question_id, MAX(id) AS latest_id
                            FROM session_items
-                           WHERE question_id IS NOT NULL
+                           WHERE question_id IS NOT NULL AND id>?
                            GROUP BY question_id
                        ) chosen ON chosen.latest_id=item.id
                    )
@@ -886,26 +943,28 @@ class Database:
                           COUNT(latest.question_id) AS practiced,
                           COALESCE(SUM(CASE WHEN latest.is_correct=1 THEN 1 ELSE 0 END), 0) AS correct
                    FROM questions q
-                   LEFT JOIN latest ON latest.question_id=q.id"""
+                   LEFT JOIN latest ON latest.question_id=q.id""",
+                (cutoff,),
             ).fetchone()
             type_rows = connection.execute(
                 """WITH practiced AS (
                        SELECT DISTINCT question_id
                        FROM session_items
-                       WHERE question_id IS NOT NULL
+                       WHERE question_id IS NOT NULL AND id>?
                    )
                    SELECT q.question_type, COUNT(q.id) AS total,
                           COUNT(practiced.question_id) AS practiced
                    FROM questions q
                    LEFT JOIN practiced ON practiced.question_id=q.id
-                   GROUP BY q.question_type"""
+                   GROUP BY q.question_type""",
+                (cutoff,),
             ).fetchall()
             trend_rows = connection.execute(
                 """SELECT substr(answered_at, 1, 10) AS answer_date, COUNT(*) AS answer_count
                    FROM session_items
-                   WHERE substr(answered_at, 1, 10) BETWEEN ? AND ?
+                   WHERE id>? AND substr(answered_at, 1, 10) BETWEEN ? AND ?
                    GROUP BY substr(answered_at, 1, 10)""",
-                (dates[0].isoformat(), dates[-1].isoformat()),
+                (cutoff, dates[0].isoformat(), dates[-1].isoformat()),
             ).fetchall()
             recent_rows = connection.execute(
                 """SELECT s.id, s.mode, s.started_at, s.completed_at, s.score, s.total,
@@ -913,10 +972,11 @@ class Database:
                           COALESCE(SUM(item.is_correct), 0) AS correct_count,
                           MAX(item.answered_at) AS last_answered_at
                    FROM sessions s
-                   JOIN session_items item ON item.session_id=s.id
+                   JOIN session_items item ON item.session_id=s.id AND item.id>?
                    GROUP BY s.id
                    ORDER BY last_answered_at DESC, s.id DESC
-                   LIMIT 4"""
+                   LIMIT 4""",
+                (cutoff,),
             ).fetchall()
 
         total = int(totals_row["total"])

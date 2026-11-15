@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtSvg import QSvgRenderer
-from PySide6.QtWidgets import QFrame
+from PySide6.QtWidgets import QFrame, QLabel
 
 from offline_quiz.assets import HERO_ARTWORK, REQUIRED_ICONS, asset_path, load_svg_icon
 from offline_quiz.database import Database
@@ -86,11 +87,37 @@ def test_settings_page_uses_card_layout_and_local_action_icons(qtbot, tmp_path):
     qtbot.addWidget(window)
 
     assert window.settings_page.findChild(QFrame, "settingsCard") is not None
+    assert window.settings_page.findChild(QFrame, "learningDataCard") is not None
     assert len(window.settings_page.action_buttons) == 4
+    assert len(window.settings_page.learning_data_buttons) == 3
     assert all(
         not button.icon().isNull()
         for button in window.settings_page.action_buttons.values()
     )
+    assert all(
+        not button.icon().isNull()
+        for button in window.settings_page.learning_data_buttons.values()
+    )
+    assert "QFrame#learningDataCard" in window.styleSheet()
+
+
+def test_settings_page_shows_ownership_notice_below_offline_summary(qtbot, tmp_path):
+    window = MainWindow(Database(tmp_path / "quiz.db"), tmp_path)
+    qtbot.addWidget(window)
+
+    notice = window.settings_page.findChild(QLabel, "copyrightNotice")
+    offline_summary = window.settings_page.findChild(QFrame, "overviewPanel")
+
+    assert notice is not None
+    assert notice.text() == (
+        "本软件由雨辰开发并维护，未经许可请勿复制、修改或用于商业用途。"
+    )
+    assert notice.wordWrap()
+    assert notice.alignment() & Qt.AlignHCenter
+    assert window.settings_page.layout().indexOf(notice) == (
+        window.settings_page.layout().indexOf(offline_summary) + 1
+    )
+    assert "QLabel#copyrightNotice" in window.styleSheet()
 
 
 def test_selected_navigation_icon_switches_to_primary_tone(qtbot, tmp_path):

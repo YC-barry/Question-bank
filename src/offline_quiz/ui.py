@@ -1271,6 +1271,8 @@ class HistoryPage(QWidget):
 
 
 class SettingsPage(QWidget):
+    data_changed = Signal()
+
     def __init__(self, database: Database, data_dir: Path, parent=None):
         super().__init__(parent)
         self.database = database
@@ -1331,6 +1333,44 @@ class SettingsPage(QWidget):
         apply_soft_shadow(card)
         layout.addWidget(card)
 
+        learning_card = QFrame()
+        learning_card.setObjectName("learningDataCard")
+        learning_layout = QVBoxLayout(learning_card)
+        learning_layout.setContentsMargins(22, 18, 22, 20)
+        learning_layout.setSpacing(10)
+        learning_title = QLabel("本地学习数据")
+        learning_title.setObjectName("sectionTitle")
+        learning_layout.addWidget(learning_title)
+        learning_note = QLabel(
+            "可分别清理错题本、练习记录，或只重置首页学习概览。每次操作前都会自动备份。"
+        )
+        learning_note.setObjectName("statCaption")
+        learning_note.setWordWrap(True)
+        learning_layout.addWidget(learning_note)
+        self.learning_data_buttons = {
+            "wrong": QPushButton("清空错题本"),
+            "history": QPushButton("清空练习记录"),
+            "overview": QPushButton("重置学习概览"),
+        }
+        learning_icons = {
+            "wrong": "target",
+            "history": "notebook-tabs",
+            "overview": "chart-no-axes-combined",
+        }
+        learning_actions = QHBoxLayout()
+        learning_actions.setSpacing(12)
+        for key, button in self.learning_data_buttons.items():
+            button.setProperty("role", "dashboardAction")
+            button.setIcon(load_svg_icon(learning_icons[key], ThemeTokens.ERROR, 22))
+            button.setIconSize(QSize(22, 22))
+            button.clicked.connect(
+                lambda _checked=False, action=key: self.clear_learning_data(action)
+            )
+            learning_actions.addWidget(button, 1)
+        learning_layout.addLayout(learning_actions)
+        apply_soft_shadow(learning_card)
+        layout.addWidget(learning_card)
+
         offline_card = QFrame()
         offline_card.setObjectName("overviewPanel")
         offline_layout = QHBoxLayout(offline_card)
@@ -1344,6 +1384,14 @@ class SettingsPage(QWidget):
         offline_layout.addWidget(offline_icon)
         offline_layout.addWidget(offline, 1)
         layout.addWidget(offline_card)
+
+        copyright_notice = QLabel(
+            "本软件由雨辰开发并维护，未经许可请勿复制、修改或用于商业用途。"
+        )
+        copyright_notice.setObjectName("copyrightNotice")
+        copyright_notice.setWordWrap(True)
+        copyright_notice.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+        layout.addWidget(copyright_notice)
         layout.addStretch()
 
     def export_templates(self) -> None:
@@ -1373,6 +1421,57 @@ class SettingsPage(QWidget):
             QMessageBox.information(self, "备份完成", f"备份已保存：\n{path}")
         except Exception as exc:
             QMessageBox.warning(self, "备份失败", str(exc))
+
+    def clear_learning_data(self, action: str) -> None:
+        actions = {
+            "wrong": {
+                "title": "确认清空错题本",
+                "prompt": (
+                    "确定清空本机错题本吗？\n\n"
+                    "只删除错题状态，不删除题库、解析资料、练习记录、答案或成绩。"
+                ),
+                "operation": self.database.clear_wrong_questions,
+                "success": "错题本已清空",
+            },
+            "history": {
+                "title": "确认清空练习记录",
+                "prompt": (
+                    "确定清空全部练习和考试记录吗？\n\n"
+                    "将删除历史答题明细、答案和成绩；题库、解析资料和错题本保留。"
+                ),
+                "operation": self.database.clear_practice_history,
+                "success": "练习记录已清空",
+            },
+            "overview": {
+                "title": "确认重置学习概览",
+                "prompt": (
+                    "确定让学习首页的进度、趋势和最近活动从现在重新统计吗？\n\n"
+                    "练习记录、错题本、题库和解析资料都不会被删除。"
+                ),
+                "operation": self.database.reset_learning_overview,
+                "success": "学习概览已重置",
+            },
+        }
+        config = actions.get(action)
+        if config is None:
+            return
+        if QMessageBox.question(
+            self,
+            str(config["title"]),
+            f"{config['prompt']}\n\n执行前会自动创建安全备份，是否继续？",
+        ) != QMessageBox.Yes:
+            return
+        try:
+            backup_path = self.backups.create_backup()
+            config["operation"]()
+            self.data_changed.emit()
+            QMessageBox.information(
+                self,
+                str(config["success"]),
+                f"{config['success']}。\n安全备份：\n{backup_path}",
+            )
+        except Exception as exc:
+            QMessageBox.warning(self, "操作失败", str(exc))
 
     def restore_backup(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "选择备份", str(self.data_dir / "backups"), "数据库备份 (*.db)")
@@ -1488,6 +1587,7 @@ class MainWindow(QMainWindow):
         self.page_stack.currentChanged.connect(self.refresh_current)
         self.home_page.navigate_requested.connect(self.navigate)
         self.bank_page.data_changed.connect(self.refresh_all)
+        self.settings_page.data_changed.connect(self.refresh_all)
         self.setStyleSheet(APP_STYLE)
         self.current_page_key = "home"
         self.navigate("home")

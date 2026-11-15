@@ -76,7 +76,7 @@ def test_schema_v3_is_idempotent_and_contains_explanation_tables(tmp_path):
     Database(path)
 
     with sqlite3.connect(path) as connection:
-        assert connection.execute("SELECT version FROM schema_version").fetchone()[0] == 3
+        assert connection.execute("SELECT version FROM schema_version").fetchone()[0] == 4
         tables = {
             row[0]
             for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")

@@ -14,6 +14,7 @@
 - 本地 SQLite 存储、自动备份、手动备份与恢复。
 - 显示题目中的图片和公式，并把附件保存在历史快照中。
 - 在设置页一键导出包含五类题型示例的 Excel、Word、PPT 模板。
+- 在设置页分别清空本地错题本、练习记录，或仅重置学习概览；每次操作前自动创建安全备份。
 - 全新学习首页、左侧导航、专项筛选、错题强化、题号导航和大尺寸答案解析区。
 - 无需登录或注册；所有功能继续保持完全离线。
 
@@ -54,7 +55,7 @@ $env:QT_QPA_PLATFORM="offscreen"
 .\packaging\build.ps1
 ```
 
-脚本先运行测试，再生成 `dist\KuishuQuiz` 应用目录，并在 Inno Setup 可用时生成 `dist\installer\KuishuQuiz-Setup-1.5.1-test8.exe`。
+脚本先运行测试，再生成 `dist\KuishuQuiz` 应用目录，并在 Inno Setup 可用时生成 `dist\installer\KuishuQuiz-Setup-1.6.0-test9.exe`。
 
 > GitHub 仓库只保存可维护的源码、测试、打包脚本和界面素材。解析 Word、提取后的解析数据、虚拟环境、构建产物、用户题库数据库以及体积过大的 LibreOffice 二进制文件均不会提交。
 

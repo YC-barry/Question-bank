@@ -35,7 +35,8 @@ QPushButton[role="nav"]:checked {{ background: {t.PALE_BLUE}; color: {t.PRIMARY}
 QFrame#heroCard {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #F8FBFF, stop:1 {t.PALE_BLUE}); border: 1px solid #D4E3F7; border-radius: 20px; }}
 QLabel#heroTitle {{ color: {t.TEXT}; font-size: 28px; font-weight: 700; }}
 QLabel#heroText {{ color: {t.MUTED}; font-size: 14px; }}
-QFrame#statCard, QFrame#contentCard, QFrame#settingsCard {{ background: {t.CARD}; border: 1px solid {t.BORDER}; border-radius: 16px; }}
+QLabel#copyrightNotice {{ color: {t.MUTED}; font-size: 12px; padding: 2px 8px; }}
+QFrame#statCard, QFrame#contentCard, QFrame#settingsCard, QFrame#learningDataCard {{ background: {t.CARD}; border: 1px solid {t.BORDER}; border-radius: 16px; }}
 QFrame#statIconHost {{ background: #E9F2FF; border: none; border-radius: 10px; }}
 QFrame#overviewPanel {{ background: #FBFDFF; border: 1px solid #E2EBF7; border-radius: 14px; }}
 QScrollArea#dashboardScroll {{ border: none; background: transparent; }}

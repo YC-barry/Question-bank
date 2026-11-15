@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "offline-quiz"
-version = "1.5.1.dev8"
+version = "1.6.0.dev9"
 description = "岿枢题典：完全离线的 Windows 题库与考试工具"
 requires-python = ">=3.12,<3.15"
 dependencies = [

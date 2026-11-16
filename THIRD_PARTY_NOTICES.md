@@ -20,6 +20,14 @@ LibreOffice 及其第三方组件的许可证和声明随安装目录一并提�
 
 LibreOffice 是独立的第三方自由软件项目。本软件仅调用其无界面转换能力。
 
+## Inno Setup 简体中文翻译
+
+用途：让安装和卸载向导只显示简体中文。语言文件来自 Inno Setup 官方源码仓库，由 Zhenghan Yang 维护。
+
+- 来源：`https://github.com/jrsoftware/issrc/blob/main/Files/Languages/ChineseSimplified.isl`
+- 下载文件 SHA-256：`E0B0B350E2245F3C5E65586DFE43D574F6E7F06F2261149ABA284954B3FC9A8D`
+- 本地文件：`packaging/ChineseSimplified.isl`
+
 ## unDraw Graduation Illustration
 
 用途：学习首页的本地 SVG 主视觉，主色已调整为恒枢题典冰蓝配色。

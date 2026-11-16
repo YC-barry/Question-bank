@@ -38,7 +38,20 @@ function Remove-FilesExcept([string]$Path, [string[]]$Keep) {
     }
 }
 
+function Remove-MatchingFilesExcept([string]$Path, [string]$Filter, [string[]]$Keep) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Container)) { return }
+    Assert-BundlePath $Path
+    Get-ChildItem -LiteralPath $Path -File -Filter $Filter | Where-Object { $Keep -notcontains $_.Name } | ForEach-Object {
+        Assert-BundlePath $_.FullName
+        Remove-Item -LiteralPath $_.FullName -Force
+    }
+}
+
 Remove-DirectoriesExcept (Join-Path $ResolvedRoot "program\resource") @("common", "zh_CN")
+
+$RegistryRoot = Join-Path $ResolvedRoot "share\registry"
+Remove-MatchingFilesExcept $RegistryRoot "Langpack-*.xcd" @("Langpack-zh-CN.xcd")
+Remove-MatchingFilesExcept $RegistryRoot "cjk_*.xcd" @("cjk_zh-CN.xcd")
 
 $RegistryResources = Join-Path $ResolvedRoot "share\registry\res"
 if (Test-Path -LiteralPath $RegistryResources -PathType Container) {
@@ -61,6 +74,12 @@ if (Test-Path -LiteralPath $Extensions -PathType Container) {
 Remove-FilesExcept (Join-Path $ResolvedRoot "share\autocorr") @("acor_zh-CN.dat")
 Remove-DirectoriesExcept (Join-Path $ResolvedRoot "share\autotext") @("common", "zh-CN")
 Remove-FilesExcept (Join-Path $ResolvedRoot "readmes") @("readme_zh-CN.txt")
+Remove-FilesExcept (Join-Path $ResolvedRoot "share\fingerprint") @("zh-Hans.lm")
+Remove-FilesExcept (Join-Path $ResolvedRoot "share\numbertext") @("Suzhou.sor", "zh.sor")
+Remove-MatchingFilesExcept (Join-Path $ResolvedRoot "share\Scripts\python\LibreLogo") `
+    "LibreLogo_*.properties" @("LibreLogo_zh_CN.properties")
+Remove-MatchingFilesExcept (Join-Path $ResolvedRoot "share\basic\Depot") `
+    "Lang_*.xba" @("Lang_zh.xba")
 
 $Wordbook = Join-Path $ResolvedRoot "share\wordbook"
 if (Test-Path -LiteralPath $Wordbook -PathType Container) {
@@ -77,6 +96,27 @@ if (Test-Path -LiteralPath $Help -PathType Container) {
 Get-ChildItem -LiteralPath $ResolvedRoot -File -Filter "*.msi" | ForEach-Object {
     Assert-BundlePath $_.FullName
     Remove-Item -LiteralPath $_.FullName -Force
+}
+
+$UnexpectedLocaleFiles = @(
+    Get-ChildItem -LiteralPath $RegistryRoot -File -Filter "Langpack-*.xcd" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne "Langpack-zh-CN.xcd" }
+    Get-ChildItem -LiteralPath $RegistryRoot -File -Filter "cjk_*.xcd" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne "cjk_zh-CN.xcd" }
+    Get-ChildItem -LiteralPath (Join-Path $ResolvedRoot "share\fingerprint") -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne "zh-Hans.lm" }
+    Get-ChildItem -LiteralPath (Join-Path $ResolvedRoot "share\numbertext") -File -ErrorAction SilentlyContinue |
+        Where-Object { @("Suzhou.sor", "zh.sor") -notcontains $_.Name }
+    Get-ChildItem -LiteralPath (Join-Path $ResolvedRoot "share\Scripts\python\LibreLogo") `
+        -File -Filter "LibreLogo_*.properties" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne "LibreLogo_zh_CN.properties" }
+    Get-ChildItem -LiteralPath (Join-Path $ResolvedRoot "share\basic\Depot") `
+        -File -Filter "Lang_*.xba" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne "Lang_zh.xba" }
+)
+if ($UnexpectedLocaleFiles.Count -gt 0) {
+    $UnexpectedNames = ($UnexpectedLocaleFiles | ForEach-Object { $_.FullName }) -join "; "
+    throw "Unexpected non-Simplified-Chinese resources remain in the packaged bundle: $UnexpectedNames"
 }
 
 Write-Host "LibreOffice packaging resources trimmed to Simplified Chinese."

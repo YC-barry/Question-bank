@@ -61,7 +61,7 @@ $env:QT_QPA_PLATFORM="offscreen"
 .\packaging\build.ps1
 ```
 
-脚本先运行测试，再生成 `dist\KuishuQuiz-Win7` 应用目录，自动删除内置 LibreOffice 的非中文语言资源，生成 `dist\installer\KuishuQuiz-Win7-Setup-1.6.0-win7-rc1.exe`，最后把同名安装器复制到项目根目录。该安装器是面向 Windows 7 SP1 x64 的候选版，也可安装在 Windows 10/11 x64。
+脚本先运行测试，再生成 `dist\KuishuQuiz-Win7` 应用目录，按简体中文白名单删除内置 LibreOffice 的其他语言资源并执行产物审计，然后使用官方简体中文语言文件生成 `dist\installer\KuishuQuiz-Win7-Setup-1.6.0-win7-rc1.exe`，最后把同名安装器复制到项目根目录。该安装器是面向 Windows 7 SP1 x64 的候选版，也可安装在 Windows 10/11 x64。
 
 > GitHub 仓库只保存可维护的源码、测试、打包脚本和界面素材。解析 Word、提取后的解析数据、虚拟环境、构建产物、用户题库数据库以及体积过大的 LibreOffice 二进制文件均不会提交。
 

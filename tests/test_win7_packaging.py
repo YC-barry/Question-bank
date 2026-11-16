@@ -32,6 +32,12 @@ def test_inno_installer_targets_win7_sp1_x64_and_isolated_paths():
     assert r'Source: "..\dist\KuishuQuiz-Win7\*"' in installer
     assert r"{localappdata}\OfflineQuiz-Win7" in installer
     assert r"{localappdata}\OfflineQuiz')," not in installer
+    assert '[Languages]' in installer
+    assert 'Name: "chinesesimplified"' in installer
+    assert 'MessagesFile: "ChineseSimplified.isl"' in installer
+    translation = ROOT / "packaging" / "ChineseSimplified.isl"
+    assert translation.is_file()
+    assert "LanguageName=简体中文" in translation.read_text(encoding="utf-8")
 
 
 def test_build_requires_and_copies_finished_installer_to_repository_root():
@@ -54,11 +60,16 @@ def test_libreoffice_packaging_copy_keeps_only_simplified_chinese_resources(tmp_
         "program/resource/zh_CN",
         "program/resource/fr",
         "share/registry/res",
+        "share/registry",
         "share/extensions/dict-fr",
         "share/autocorr",
         "share/autotext/common",
         "share/autotext/zh-CN",
         "share/autotext/fr",
+        "share/fingerprint",
+        "share/numbertext",
+        "share/Scripts/python/LibreLogo",
+        "share/basic/Depot",
         "share/wordbook",
         "help/media/icon-themes/cmd/32/ar",
         "readmes",
@@ -70,12 +81,32 @@ def test_libreoffice_packaging_copy_keeps_only_simplified_chinese_resources(tmp_
     (libreoffice / "program/resource/zh_CN/messages.mo").write_text("zh", encoding="utf-8")
     (libreoffice / "share/registry/res/registry_fr.xcd").write_text("fr", encoding="utf-8")
     (libreoffice / "share/registry/res/registry_zh-CN.xcd").write_text("zh", encoding="utf-8")
+    (libreoffice / "share/registry/Langpack-fr.xcd").write_text("fr", encoding="utf-8")
+    (libreoffice / "share/registry/Langpack-zh-TW.xcd").write_text("zh-TW", encoding="utf-8")
+    (libreoffice / "share/registry/Langpack-zh-CN.xcd").write_text("zh-CN", encoding="utf-8")
+    (libreoffice / "share/registry/cjk_zh-TW.xcd").write_text("zh-TW", encoding="utf-8")
+    (libreoffice / "share/registry/cjk_zh-CN.xcd").write_text("zh-CN", encoding="utf-8")
+    (libreoffice / "share/registry/base.xcd").write_text("common", encoding="utf-8")
     (libreoffice / "share/extensions/dict-fr/fr.dic").write_text("fr", encoding="utf-8")
     (libreoffice / "share/autocorr/acor_fr.dat").write_text("fr", encoding="utf-8")
     (libreoffice / "share/autocorr/acor_zh-CN.dat").write_text("zh", encoding="utf-8")
     (libreoffice / "share/autotext/common/standard.bau").write_text("common", encoding="utf-8")
     (libreoffice / "share/autotext/zh-CN/standard.bau").write_text("zh", encoding="utf-8")
     (libreoffice / "share/autotext/fr/standard.bau").write_text("fr", encoding="utf-8")
+    (libreoffice / "share/fingerprint/en.lm").write_text("en", encoding="utf-8")
+    (libreoffice / "share/fingerprint/zh-Hant.lm").write_text("zh-Hant", encoding="utf-8")
+    (libreoffice / "share/fingerprint/zh-Hans.lm").write_text("zh-Hans", encoding="utf-8")
+    (libreoffice / "share/numbertext/en.sor").write_text("en", encoding="utf-8")
+    (libreoffice / "share/numbertext/zh.sor").write_text("zh", encoding="utf-8")
+    (libreoffice / "share/numbertext/Suzhou.sor").write_text("zh", encoding="utf-8")
+    (libreoffice / "share/Scripts/python/LibreLogo/LibreLogo.py").write_text("common", encoding="utf-8")
+    (libreoffice / "share/Scripts/python/LibreLogo/LibreLogo_fr.properties").write_text("fr", encoding="utf-8")
+    (libreoffice / "share/Scripts/python/LibreLogo/LibreLogo_zh_TW.properties").write_text("zh-TW", encoding="utf-8")
+    (libreoffice / "share/Scripts/python/LibreLogo/LibreLogo_zh_CN.properties").write_text("zh-CN", encoding="utf-8")
+    (libreoffice / "share/basic/Depot/CommonLang.xba").write_text("common", encoding="utf-8")
+    (libreoffice / "share/basic/Depot/Lang_en.xba").write_text("en", encoding="utf-8")
+    (libreoffice / "share/basic/Depot/Lang_tw.xba").write_text("zh-TW", encoding="utf-8")
+    (libreoffice / "share/basic/Depot/Lang_zh.xba").write_text("zh-CN", encoding="utf-8")
     (libreoffice / "share/wordbook/en-US.dic").write_text("en", encoding="utf-8")
     (libreoffice / "help/media/icon-themes/cmd/32/ar/defaultbullet.svg").write_text(
         "ar", encoding="utf-8"
@@ -105,12 +136,31 @@ def test_libreoffice_packaging_copy_keeps_only_simplified_chinese_resources(tmp_
     assert not (libreoffice / "program/resource/fr").exists()
     assert (libreoffice / "share/registry/res/registry_zh-CN.xcd").is_file()
     assert not (libreoffice / "share/registry/res/registry_fr.xcd").exists()
+    assert (libreoffice / "share/registry/Langpack-zh-CN.xcd").is_file()
+    assert (libreoffice / "share/registry/cjk_zh-CN.xcd").is_file()
+    assert (libreoffice / "share/registry/base.xcd").is_file()
+    assert not (libreoffice / "share/registry/Langpack-fr.xcd").exists()
+    assert not (libreoffice / "share/registry/Langpack-zh-TW.xcd").exists()
+    assert not (libreoffice / "share/registry/cjk_zh-TW.xcd").exists()
     assert not any((libreoffice / "share/extensions").iterdir())
     assert (libreoffice / "share/autocorr/acor_zh-CN.dat").is_file()
     assert not (libreoffice / "share/autocorr/acor_fr.dat").exists()
     assert (libreoffice / "share/autotext/common").is_dir()
     assert (libreoffice / "share/autotext/zh-CN").is_dir()
     assert not (libreoffice / "share/autotext/fr").exists()
+    assert [path.name for path in (libreoffice / "share/fingerprint").iterdir()] == ["zh-Hans.lm"]
+    assert sorted(path.name for path in (libreoffice / "share/numbertext").iterdir()) == [
+        "Suzhou.sor",
+        "zh.sor",
+    ]
+    assert sorted(path.name for path in (libreoffice / "share/Scripts/python/LibreLogo").iterdir()) == [
+        "LibreLogo.py",
+        "LibreLogo_zh_CN.properties",
+    ]
+    assert sorted(path.name for path in (libreoffice / "share/basic/Depot").iterdir()) == [
+        "CommonLang.xba",
+        "Lang_zh.xba",
+    ]
     assert not (libreoffice / "share/wordbook").exists()
     assert (libreoffice / "readmes/readme_zh-CN.txt").is_file()
     assert not (libreoffice / "readmes/readme_fr.txt").exists()

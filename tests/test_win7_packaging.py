@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,6 +14,7 @@ def test_pyinstaller_outputs_isolated_win7_executable():
     assert '"PySide2.QtWebEngineCore"' in spec
     assert '"PySide2.QtWebEngineWidgets"' in spec
     assert 'name="KuishuQuiz"' not in spec
+    assert "third_party/libreoffice" not in spec
 
 
 def test_inno_installer_targets_win7_sp1_x64_and_isolated_paths():
@@ -40,4 +42,78 @@ def test_build_requires_and_copies_finished_installer_to_repository_root():
     assert "Inno Setup 6 is required" in build
     assert "Copy-Item" in build
     assert "$RootInstallerPath" in build
+    assert "trim_libreoffice_languages.ps1" in build
+    assert "Copy-Item -LiteralPath $LocalLibreOfficeRoot" in build
+    assert "$PackagedThirdPartyPath" in build
+
+
+def test_libreoffice_packaging_copy_keeps_only_simplified_chinese_resources(tmp_path):
+    libreoffice = tmp_path / "App" / "libreoffice"
+    for relative in (
+        "program/resource/common",
+        "program/resource/zh_CN",
+        "program/resource/fr",
+        "share/registry/res",
+        "share/extensions/dict-fr",
+        "share/autocorr",
+        "share/autotext/common",
+        "share/autotext/zh-CN",
+        "share/autotext/fr",
+        "share/wordbook",
+        "help/media/icon-themes/cmd/32/ar",
+        "readmes",
+    ):
+        (libreoffice / relative).mkdir(parents=True, exist_ok=True)
+    (libreoffice / "program" / "soffice.exe").write_bytes(b"stub")
+    (libreoffice / "LibreOffice_25.2.7.2_Win_x86-64.msi").write_bytes(b"installer")
+    (libreoffice / "program/resource/fr/messages.mo").write_text("fr", encoding="utf-8")
+    (libreoffice / "program/resource/zh_CN/messages.mo").write_text("zh", encoding="utf-8")
+    (libreoffice / "share/registry/res/registry_fr.xcd").write_text("fr", encoding="utf-8")
+    (libreoffice / "share/registry/res/registry_zh-CN.xcd").write_text("zh", encoding="utf-8")
+    (libreoffice / "share/extensions/dict-fr/fr.dic").write_text("fr", encoding="utf-8")
+    (libreoffice / "share/autocorr/acor_fr.dat").write_text("fr", encoding="utf-8")
+    (libreoffice / "share/autocorr/acor_zh-CN.dat").write_text("zh", encoding="utf-8")
+    (libreoffice / "share/autotext/common/standard.bau").write_text("common", encoding="utf-8")
+    (libreoffice / "share/autotext/zh-CN/standard.bau").write_text("zh", encoding="utf-8")
+    (libreoffice / "share/autotext/fr/standard.bau").write_text("fr", encoding="utf-8")
+    (libreoffice / "share/wordbook/en-US.dic").write_text("en", encoding="utf-8")
+    (libreoffice / "help/media/icon-themes/cmd/32/ar/defaultbullet.svg").write_text(
+        "ar", encoding="utf-8"
+    )
+    (libreoffice / "readmes/readme_fr.txt").write_text("fr", encoding="utf-8")
+    (libreoffice / "readmes/readme_zh-CN.txt").write_text("zh", encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            "powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(ROOT / "packaging" / "trim_libreoffice_languages.ps1"),
+            "-LibreOfficeRoot",
+            str(libreoffice),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert (libreoffice / "program/resource/common").is_dir()
+    assert (libreoffice / "program/resource/zh_CN").is_dir()
+    assert not (libreoffice / "program/resource/fr").exists()
+    assert (libreoffice / "share/registry/res/registry_zh-CN.xcd").is_file()
+    assert not (libreoffice / "share/registry/res/registry_fr.xcd").exists()
+    assert not any((libreoffice / "share/extensions").iterdir())
+    assert (libreoffice / "share/autocorr/acor_zh-CN.dat").is_file()
+    assert not (libreoffice / "share/autocorr/acor_fr.dat").exists()
+    assert (libreoffice / "share/autotext/common").is_dir()
+    assert (libreoffice / "share/autotext/zh-CN").is_dir()
+    assert not (libreoffice / "share/autotext/fr").exists()
+    assert not (libreoffice / "share/wordbook").exists()
+    assert (libreoffice / "readmes/readme_zh-CN.txt").is_file()
+    assert not (libreoffice / "readmes/readme_fr.txt").exists()
+    assert not (libreoffice / "help").exists()
+    assert not (libreoffice / "LibreOffice_25.2.7.2_Win_x86-64.msi").exists()
 

@@ -22,7 +22,8 @@ $DistPath = Join-Path $ExecutionRoot "dist"
 $AppDistPath = Join-Path $DistPath "KuishuQuiz-Win7"
 $InstallerPath = Join-Path $DistPath "installer\$InstallerFileName"
 $RootInstallerPath = Join-Path $ExecutionRoot $InstallerFileName
-$LibreOfficePath = Join-Path $ExecutionRoot "third_party\libreoffice\App\libreoffice\program\soffice.exe"
+$LocalLibreOfficeRoot = Join-Path $ExecutionRoot "third_party\libreoffice"
+$LibreOfficePath = Join-Path $LocalLibreOfficeRoot "App\libreoffice\program\soffice.exe"
 
 Push-Location $ExecutionRoot
 try {
@@ -44,6 +45,15 @@ try {
     finally {
         Pop-Location
     }
+
+    $PackagedThirdPartyPath = Join-Path $AppDistPath "_internal\third_party"
+    New-Item -ItemType Directory -Path $PackagedThirdPartyPath -Force | Out-Null
+    Copy-Item -LiteralPath $LocalLibreOfficeRoot `
+        -Destination (Join-Path $PackagedThirdPartyPath "libreoffice") `
+        -Recurse `
+        -Force
+    $PackagedLibreOffice = Join-Path $PackagedThirdPartyPath "libreoffice\App\libreoffice"
+    & (Join-Path $ExecutionRoot "packaging\trim_libreoffice_languages.ps1") -LibreOfficeRoot $PackagedLibreOffice
 
     $InnoCandidates = @(
         "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",

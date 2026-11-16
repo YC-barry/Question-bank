@@ -4,7 +4,7 @@
 
 ## Win7 兼容版说明
 
-当前版本 `1.6.0-win7-rc1` 是候选版，运行时固定为 Python 3.8.10 和 PySide2 5.15.2.1，并内置 LibreOffice 25.2.7 用于离线转换旧版 Word 文档。Win7 设备必须为 SP1 64 位，并预先安装 KB4490628、KB4474419 和 KB2999226；建议在正式使用前先备份题库并完成一次导入、答题和备份恢复验证。
+当前版本 `1.6.0-win7-rc1` 是候选版，运行时固定为 Python 3.8.10 和 PySide2 5.15.2.1，并内置官方 x64 版 LibreOffice 25.2.7 用于离线转换旧版 Word 文档。程序界面和安装包只保留简体中文；LibreOffice 的通用运行组件仍会保留，但其他语言资源和无界面转换不需要的帮助模块会在打包时自动删除。Win7 设备必须为 SP1 64 位，并预先安装 KB4490628、KB4474419 和 KB2999226；建议在正式使用前先备份题库并完成一次导入、答题和备份恢复验证。
 
 本版本使用独立的 `%LOCALAPPDATA%\OfflineQuiz-Win7\data` 数据目录，不读取、不覆盖 Win10+ 现代版的 `%LOCALAPPDATA%\OfflineQuiz` 数据。
 
@@ -55,13 +55,13 @@ $env:QT_QPA_PLATFORM="offscreen"
 
 ## Windows 打包
 
-安装 Inno Setup 6，并按 [`third_party/README.md`](third_party/README.md) 准备好本地 LibreOffice Portable 后运行：
+安装 Inno Setup 6，并按 [`third_party/README.md`](third_party/README.md) 准备好本地 LibreOffice x64 依赖后运行：
 
 ```powershell
 .\packaging\build.ps1
 ```
 
-脚本先运行测试，再生成 `dist\KuishuQuiz-Win7` 应用目录和 `dist\installer\KuishuQuiz-Win7-Setup-1.6.0-win7-rc1.exe`，最后把同名安装器复制到项目根目录。该安装器是面向 Windows 7 SP1 x64 的候选版，也可安装在 Windows 10/11 x64。
+脚本先运行测试，再生成 `dist\KuishuQuiz-Win7` 应用目录，自动删除内置 LibreOffice 的非中文语言资源，生成 `dist\installer\KuishuQuiz-Win7-Setup-1.6.0-win7-rc1.exe`，最后把同名安装器复制到项目根目录。该安装器是面向 Windows 7 SP1 x64 的候选版，也可安装在 Windows 10/11 x64。
 
 > GitHub 仓库只保存可维护的源码、测试、打包脚本和界面素材。解析 Word、提取后的解析数据、虚拟环境、构建产物、用户题库数据库以及体积过大的 LibreOffice 二进制文件均不会提交。
 

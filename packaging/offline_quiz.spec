@@ -4,10 +4,6 @@ a = Analysis(
     pathex=["../src"],
     binaries=[],
     datas=[
-        (
-            "../third_party/libreoffice/App/libreoffice",
-            "third_party/libreoffice/App/libreoffice",
-        ),
         ("../src/offline_quiz/visual_assets", "offline_quiz/visual_assets"),
         ("../THIRD_PARTY_NOTICES.md", "."),
     ],

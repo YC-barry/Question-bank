@@ -18,6 +18,10 @@ def _write_converter(tmp_path: Path, body: str) -> Path:
     return script
 
 
+def test_default_timeout_allows_cold_starting_bundled_converter():
+    assert DocConversionService().timeout_seconds == 120
+
+
 def test_convert_uses_isolated_copy_and_returns_docx(tmp_path):
     converter = _write_converter(
         tmp_path,

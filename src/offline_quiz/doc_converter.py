@@ -49,7 +49,7 @@ class DocConversionService:
         *,
         executable: str | Path | None = None,
         command_prefix: list[str] | None = None,
-        timeout_seconds: float = 60,
+        timeout_seconds: float = 120,
         temp_root: str | Path | None = None,
     ):
         converter = Path(executable) if executable is not None else bundled_converter_path()

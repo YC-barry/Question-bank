@@ -5,6 +5,7 @@ __pycache__/
 .pytest_cache/
 build/
 dist/
+KuishuQuiz-Win7-Setup-*.exe
 *.db
 *.log
 .superpowers/

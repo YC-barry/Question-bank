@@ -1,23 +1,42 @@
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
-$Python = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
-$BuildPath = Join-Path $ProjectRoot "build"
-$DistPath = Join-Path $ProjectRoot "dist"
-$AppDistPath = Join-Path $DistPath "KuishuQuiz"
-$LibreOfficePath = Join-Path $ProjectRoot "third_party\libreoffice\App\libreoffice\program\soffice.exe"
+$ExecutionRoot = $ProjectRoot
+$MappedDrive = $null
+$InstallerFileName = "KuishuQuiz-Win7-Setup-1.6.0-win7-rc1.exe"
 
-Push-Location $ProjectRoot
+if ($ProjectRoot -match '[^\x00-\x7F]') {
+    $MappedDrive = @("W:", "V:", "U:", "T:") |
+        Where-Object { -not (Test-Path "$_\") } |
+        Select-Object -First 1
+    if (-not $MappedDrive) {
+        throw "An unused drive letter is required to build Qt 5 from a non-ASCII project path."
+    }
+    & subst.exe $MappedDrive $ProjectRoot
+    if ($LASTEXITCODE -ne 0) { throw "Unable to create the temporary ASCII build path." }
+    $ExecutionRoot = "$MappedDrive\"
+}
+
+$Python = Join-Path $ExecutionRoot ".venv\Scripts\python.exe"
+$BuildPath = Join-Path $ExecutionRoot "build"
+$DistPath = Join-Path $ExecutionRoot "dist"
+$AppDistPath = Join-Path $DistPath "KuishuQuiz-Win7"
+$InstallerPath = Join-Path $DistPath "installer\$InstallerFileName"
+$RootInstallerPath = Join-Path $ExecutionRoot $InstallerFileName
+$LibreOfficePath = Join-Path $ExecutionRoot "third_party\libreoffice\App\libreoffice\program\soffice.exe"
+
+Push-Location $ExecutionRoot
 try {
     if (-not (Test-Path $LibreOfficePath)) {
         throw "LibreOffice offline converter is missing: $LibreOfficePath"
     }
     $env:QT_QPA_PLATFORM = "offscreen"
-    & $Python -m pytest
+    $TestTemp = Join-Path $env:TEMP "offlinequiz-win7-build-tests"
+    & $Python -m pytest -p no:cacheprovider --basetemp=$TestTemp
     if ($LASTEXITCODE -ne 0) { throw "Automated tests failed" }
 
     Remove-Item -Recurse -Force $BuildPath -ErrorAction SilentlyContinue
     Remove-Item -Recurse -Force $AppDistPath -ErrorAction SilentlyContinue
-    Push-Location (Join-Path $ProjectRoot "packaging")
+    Push-Location (Join-Path $ExecutionRoot "packaging")
     try {
         & $Python -m PyInstaller --noconfirm --clean --distpath $DistPath --workpath $BuildPath "offline_quiz.spec"
         if ($LASTEXITCODE -ne 0) { throw "Application packaging failed" }
@@ -33,15 +52,20 @@ try {
     )
     $Inno = $InnoCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
     if ($Inno) {
-        & $Inno (Join-Path $ProjectRoot "packaging\offline_quiz.iss")
+        & $Inno (Join-Path $ExecutionRoot "packaging\offline_quiz.iss")
         if ($LASTEXITCODE -ne 0) { throw "Installer generation failed" }
-        Write-Host "Installer created in dist\installer"
+        if (-not (Test-Path $InstallerPath)) { throw "Installer output is missing: $InstallerPath" }
+        Copy-Item -LiteralPath $InstallerPath -Destination $RootInstallerPath -Force
+        Write-Host "Installer created: $RootInstallerPath"
     }
     else {
-        Write-Warning "Inno Setup 6 was not found. The portable application was created in dist\KuishuQuiz. Install Inno Setup and rerun this script to create setup.exe."
+        throw "Inno Setup 6 is required to create the standalone installer."
     }
 }
 
 finally {
     Pop-Location
+    if ($MappedDrive) {
+        & subst.exe $MappedDrive /d
+    }
 }

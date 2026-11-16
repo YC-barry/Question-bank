@@ -1,6 +1,12 @@
-# 岿枢题典
+# 岿枢题典（Win7 兼容版）
 
-面向 Windows 10/11 x64 的本地题库、考试与刷题工具。程序不需要联网，不上传题库、答案或成绩。
+面向 Windows 7 SP1 x64、Windows 10 x64 和 Windows 11 x64 的本地题库、考试与刷题工具。程序不需要联网，不上传题库、答案或成绩。
+
+## Win7 兼容版说明
+
+当前版本 `1.6.0-win7-rc1` 是候选版，运行时固定为 Python 3.8.10 和 PySide2 5.15.2.1，并内置 LibreOffice 25.2.7 用于离线转换旧版 Word 文档。Win7 设备必须为 SP1 64 位，并预先安装 KB4490628、KB4474419 和 KB2999226；建议在正式使用前先备份题库并完成一次导入、答题和备份恢复验证。
+
+本版本使用独立的 `%LOCALAPPDATA%\OfflineQuiz-Win7\data` 数据目录，不读取、不覆盖 Win10+ 现代版的 `%LOCALAPPDATA%\OfflineQuiz` 数据。
 
 ## 已实现功能
 
@@ -32,7 +38,7 @@
 
 ## 本地开发
 
-需要 Python 3.12：
+需要 Python 3.8.10 x64；依赖固定使用 PySide2 5.15.2.1：
 
 ```powershell
 python -m venv .venv
@@ -55,7 +61,7 @@ $env:QT_QPA_PLATFORM="offscreen"
 .\packaging\build.ps1
 ```
 
-脚本先运行测试，再生成 `dist\KuishuQuiz` 应用目录，并在 Inno Setup 可用时生成 `dist\installer\KuishuQuiz-Setup-1.6.0-test9.exe`。
+脚本先运行测试，再生成 `dist\KuishuQuiz-Win7` 应用目录和 `dist\installer\KuishuQuiz-Win7-Setup-1.6.0-win7-rc1.exe`，最后把同名安装器复制到项目根目录。该安装器是面向 Windows 7 SP1 x64 的候选版，也可安装在 Windows 10/11 x64。
 
 > GitHub 仓库只保存可维护的源码、测试、打包脚本和界面素材。解析 Word、提取后的解析数据、虚拟环境、构建产物、用户题库数据库以及体积过大的 LibreOffice 二进制文件均不会提交。
 

@@ -103,6 +103,44 @@ raise SystemExit(2)
     assert not work_root.exists() or not any(work_root.iterdir())
 
 
+def test_failed_direct_docx_export_retries_through_odt(tmp_path):
+    converter = _write_converter(
+        tmp_path,
+        """
+from pathlib import Path
+import shutil
+import sys
+
+args = sys.argv[1:]
+format_name = args[args.index('--convert-to') + 1]
+out_dir = Path(args[args.index('--outdir') + 1])
+source = Path(args[-1])
+out_dir.mkdir(parents=True, exist_ok=True)
+
+if source.suffix == '.doc' and format_name.startswith('docx'):
+    sys.stderr.write('direct OOXML export failed')
+    raise SystemExit(9)
+if format_name == 'odt':
+    shutil.copy2(source, out_dir / f'{source.stem}.odt')
+elif source.suffix == '.odt' and format_name.startswith('docx'):
+    shutil.copy2(source, out_dir / f'{source.stem}.docx')
+else:
+    raise SystemExit(10)
+""",
+    )
+    source = tmp_path / "needs-normalization.doc"
+    source.write_bytes(b"legacy-content")
+    service = DocConversionService(
+        command_prefix=[sys.executable, str(converter)],
+        temp_root=tmp_path / "working",
+    )
+
+    converted = service.convert(source)
+
+    assert converted.path.read_bytes() == b"legacy-content"
+    converted.cleanup()
+
+
 def test_converter_supports_chinese_paths(tmp_path):
     converter = _write_converter(
         tmp_path,

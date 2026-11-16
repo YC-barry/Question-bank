@@ -1,11 +1,13 @@
 # 第三方组件说明
 
-## LibreOffice Portable 26.2.4 Multilingual Standard (Windows x86-64)
+本文件对应岿枢题典 Windows 7 SP1 x64 候选版。固定构建基线为 Python 3.8.10、PySide2 5.15.2.1 和 LibreOffice 25.2.7；目标系统需要 KB4490628、KB4474419、KB2999226，用户数据目录为 `%LOCALAPPDATA%\OfflineQuiz-Win7\data`。
+
+## LibreOffice Portable 25.2.7 Multilingual All (Windows x86-64)
 
 用途：在完全离线环境中把旧版 Word `.doc` 临时副本转换为 `.docx`，供题库解析器读取。程序使用隔离的临时配置目录，不修改源文件，也不启用在线更新。
 
-- 获取地址：`https://mirrors.ibiblio.org/libreoffice/portable/26.2.4/LibreOfficePortable_26.2.4_MultilingualStandard.paf.exe`
-- 安装源 SHA-256：`4BDE93374AEF4409243505B20D16561A4628AC7591457DD01FC6E1CCF571BA65`
+- 获取地址：`https://mirrors.ibiblio.org/libreoffice/portable/25.2.7/LibreOfficePortablePrevious_25.2.7_MultilingualAll.paf.exe`
+- 安装源 SHA-256：`60FCD0F2329D1FE3CE0C9A673C41A8C03B3E24DF76C82142DF5F2FBF5F42EA0A`
 - Authenticode 签名者：`RARE IDEAS, LLC`
 
 LibreOffice 及其第三方组件的许可证和声明随安装目录一并提供：

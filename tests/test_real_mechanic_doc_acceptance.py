@@ -11,9 +11,9 @@ from offline_quiz.sectioned_word_importer import SectionedWordImporter
 
 
 CASES = [
-    (Path(r"D:\工具\题库\机修钳工理论知识初级.doc"), 750, "平行"),
-    (Path(r"D:\工具\题库\机修钳工理论知识中级.doc"), 950, "基准"),
-    (Path(r"D:\工具\题库\机修钳工理论知识高级.doc"), 790, "机械中独立运动"),
+    (Path(r"E:\工作\题库\机修钳工理论知识初级.doc"), 750, "平行"),
+    (Path(r"E:\工作\题库\机修钳工理论知识中级.doc"), 950, "基准"),
+    (Path(r"E:\工作\题库\机修钳工理论知识高级.doc"), 790, "机械中独立运动"),
 ]
 
 

@@ -117,7 +117,7 @@ def _build_question(data: dict[str, Any], bank_name: str, source_order: int) -> 
         alias_groups = _parse_answer(kind, raw_aliases, options)
         if len(alias_groups) != len(answer):
             raise ValueError("答案别名的填空数量必须与正确答案一致")
-        for group, alias_group in zip(answer, alias_groups, strict=True):
+        for group, alias_group in zip(answer, alias_groups):
             for alias in alias_group:
                 if alias not in group:
                     group.append(alias)
@@ -172,7 +172,7 @@ class ExcelImporter(BaseImporter):
                 for row_number, values in enumerate(rows, start=2):
                     if not any(value not in (None, "") for value in values):
                         continue
-                    data = dict(zip(headers, values, strict=False))
+                    data = dict(zip(headers, values))
                     try:
                         result.questions.append(_build_question(data, sheet.title, row_number - 1))
                     except ValueError as exc:

@@ -12,7 +12,7 @@ class DocConversionError(RuntimeError):
     """旧版 Word 文档无法安全转换。"""
 
 
-@dataclass(slots=True)
+@dataclass
 class ConvertedDocument:
     path: Path
     _workspace: Path

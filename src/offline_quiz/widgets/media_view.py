@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
+from PySide2.QtCore import QSize, Qt
+from PySide2.QtGui import QPixmap
+from PySide2.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from ..domain import QuestionAsset
 from ..media import asset_from_snapshot

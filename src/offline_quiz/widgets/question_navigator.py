@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import math
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import (
+from PySide2.QtCore import Qt, Signal
+from PySide2.QtWidgets import (
     QFrame,
     QGridLayout,
     QLabel,

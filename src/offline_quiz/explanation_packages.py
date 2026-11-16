@@ -33,7 +33,7 @@ class DuplicateExplanationPackage(ValueError):
         self.filename = filename
 
 
-@dataclass(slots=True)
+@dataclass
 class ExplanationEntry:
     question_type: QuestionType
     source_number: int
@@ -43,7 +43,7 @@ class ExplanationEntry:
     explanation: str
 
 
-@dataclass(slots=True)
+@dataclass
 class ExplanationPackage:
     name: str
     filename: str

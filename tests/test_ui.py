@@ -2,7 +2,7 @@ from offline_quiz.database import Database
 from offline_quiz.domain import Question, QuestionType
 from offline_quiz.ui import MainWindow, QuestionWidget, ReviewDialog
 from offline_quiz.widgets.exam_review import ExamReviewDialog
-from PySide6.QtWidgets import QTableWidget
+from PySide2.QtWidgets import QTableWidget
 
 
 def test_main_window_has_required_navigation(qtbot, tmp_path):

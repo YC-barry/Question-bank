@@ -5,7 +5,8 @@ import os
 from pathlib import Path
 import sys
 
-from PySide6.QtWidgets import (
+from PySide2.QtCore import Qt
+from PySide2.QtWidgets import (
     QApplication,
     QDialog,
     QFileDialog,
@@ -22,6 +23,14 @@ from .database import Database
 from .ui import APP_STYLE, MainWindow
 
 
+def configure_qt_for_win7() -> None:
+    """Enable the legacy Qt high-DPI flags before QApplication is created."""
+    for attribute_name in ("AA_EnableHighDpiScaling", "AA_UseHighDpiPixmaps"):
+        attribute = getattr(Qt, attribute_name, None)
+        if attribute is not None:
+            QApplication.setAttribute(attribute, True)
+
+
 def data_directory() -> Path:
     root = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
     return root / LEGACY_DATA_DIRECTORY / "data"
@@ -29,11 +38,14 @@ def data_directory() -> Path:
 
 def configure_logging(data_dir: Path) -> None:
     data_dir.mkdir(parents=True, exist_ok=True)
+    file_handler = logging.FileHandler(
+        data_dir / "offline-quiz.log",
+        encoding="utf-8",
+    )
     logging.basicConfig(
-        filename=data_dir / "offline-quiz.log",
+        handlers=[file_handler],
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
-        encoding="utf-8",
     )
 
 
@@ -103,6 +115,7 @@ class RecoveryDialog(QDialog):
 
 
 def main() -> int:
+    configure_qt_for_win7()
     application = QApplication(sys.argv)
     apply_application_style(application)
     application.setApplicationName(PRODUCT_NAME)
@@ -114,10 +127,10 @@ def main() -> int:
         if database is None:
             recovery = RecoveryDialog(data_dir, error or "未知错误")
             recovery.show()
-            return application.exec()
+            return application.exec_()
         window = MainWindow(database, data_dir)
         window.show()
-        return application.exec()
+        return application.exec_()
     except Exception as exc:
         logging.exception("应用启动失败")
         QMessageBox.critical(None, "启动失败", f"无法启动应用：{exc}")

@@ -3,7 +3,7 @@ from __future__ import annotations
 from io import BytesIO
 
 from PIL import Image
-from PySide6.QtWidgets import QLabel, QTextBrowser, QTextEdit
+from PySide2.QtWidgets import QLabel, QTextBrowser, QTextEdit
 
 from offline_quiz.domain import (
     GradeResult,

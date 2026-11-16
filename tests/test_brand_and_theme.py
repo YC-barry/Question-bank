@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from docx import Document
-from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QApplication, QComboBox, QLabel, QLineEdit, QTableWidget, QWidget
+from PySide2.QtGui import QColor, QPalette
+from PySide2.QtWidgets import QApplication, QComboBox, QLabel, QLineEdit, QTableWidget, QWidget
 
 from offline_quiz.app import apply_application_style, data_directory
 from offline_quiz.database import Database

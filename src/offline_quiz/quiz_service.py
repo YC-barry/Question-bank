@@ -55,7 +55,7 @@ class QuizService:
             selected = random.Random(seed).sample(available, requested)
         if mode is QuizMode.EXAM:
             points = allocate_points([question.points for question in selected])
-            selected = [replace(question, points=point) for question, point in zip(selected, points, strict=True)]
+            selected = [replace(question, points=point) for question, point in zip(selected, points)]
         session_id = self.database.create_session(mode.value, filters)
         return QuizSession(session_id, mode, selected, filters)
 

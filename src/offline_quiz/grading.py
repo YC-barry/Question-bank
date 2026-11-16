@@ -62,7 +62,7 @@ class GradingService:
             answer_groups = list(question.answer or [])
             correct = len(received) == len(answer_groups) and all(
                 normalize_text(value) in {normalize_text(alias) for alias in aliases}
-                for value, aliases in zip(received, answer_groups, strict=True)
+                for value, aliases in zip(received, answer_groups)
             )
         return GradeResult(
             is_correct=correct,

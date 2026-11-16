@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
-from PySide6.QtSvg import QSvgRenderer
-from PySide6.QtWidgets import QFrame, QLabel
+from PySide2.QtCore import Qt
+from PySide2.QtSvg import QSvgRenderer
+from PySide2.QtWidgets import QFrame, QLabel
 
 from offline_quiz.assets import HERO_ARTWORK, REQUIRED_ICONS, asset_path, load_svg_icon
 from offline_quiz.database import Database

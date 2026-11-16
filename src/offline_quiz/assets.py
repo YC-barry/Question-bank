@@ -3,10 +3,9 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from PySide6.QtCore import QByteArray, Qt
-from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
-from PySide6.QtSvg import QSvgRenderer
-from PySide6.QtSvgWidgets import QSvgWidget
+from PySide2.QtCore import QByteArray, Qt
+from PySide2.QtGui import QColor, QIcon, QPainter, QPixmap
+from PySide2.QtSvg import QSvgRenderer, QSvgWidget
 
 
 ASSET_ROOT = Path(__file__).resolve().parent / "visual_assets"

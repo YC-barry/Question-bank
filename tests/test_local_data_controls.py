@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from PySide6.QtWidgets import QMessageBox
+from PySide2.QtWidgets import QMessageBox
 
 from offline_quiz.database import Database, SCHEMA_VERSION
 from offline_quiz.domain import Question, QuestionType, QuizMode

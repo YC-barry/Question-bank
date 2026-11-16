@@ -4,8 +4,8 @@ import base64
 from io import BytesIO
 
 from PIL import Image
-from PySide6.QtCore import QRect, Qt
-from PySide6.QtWidgets import QApplication, QLabel, QScrollArea
+from PySide2.QtCore import QRect, Qt
+from PySide2.QtWidgets import QApplication, QLabel, QScrollArea
 
 from offline_quiz.domain import Question, QuestionAsset, QuestionType
 from offline_quiz.widgets.exam_review import ExamReviewDialog, fit_review_to_available

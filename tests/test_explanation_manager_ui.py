@@ -4,8 +4,8 @@ import shutil
 from pathlib import Path
 
 from docx import Document
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QMessageBox
+from PySide2.QtCore import Qt
+from PySide2.QtWidgets import QMessageBox
 
 from offline_quiz.database import Database
 from offline_quiz.domain import Question, QuestionType

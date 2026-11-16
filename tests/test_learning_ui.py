@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QRect
-from PySide6.QtWidgets import QApplication, QLabel, QMessageBox, QPushButton, QScrollArea, QWidget
+from PySide2.QtCore import QRect
+from PySide2.QtWidgets import QApplication, QLabel, QMessageBox, QPushButton, QScrollArea, QWidget
 
 from offline_quiz.app import apply_application_style
 from offline_quiz.database import Database

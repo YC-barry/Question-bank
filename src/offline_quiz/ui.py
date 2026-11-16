@@ -4,9 +4,9 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QRect, QSize, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import (
+from PySide2.QtCore import QRect, QSize, Qt, QTimer, QUrl, Signal
+from PySide2.QtGui import QDesktopServices
+from PySide2.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QButtonGroup,
@@ -260,7 +260,7 @@ class QuestionWidget(QWidget):
         elif self.subjective_input is not None:
             self.subjective_input.setPlainText(str(answer))
         else:
-            for editor, value in zip(self.blank_inputs, answer, strict=False):
+            for editor, value in zip(self.blank_inputs, answer):
                 editor.setText(str(value))
 
     def set_locked(self, locked: bool = True) -> None:
@@ -415,7 +415,7 @@ class BankPage(QWidget):
     def manage_explanations(self) -> None:
         dialog = ExplanationManagerDialog(self.database, self)
         dialog.packages_changed.connect(self.data_changed.emit)
-        dialog.exec()
+        dialog.exec_()
         self.refresh_questions()
 
     def refresh(self) -> None:
@@ -513,7 +513,7 @@ class BankPage(QWidget):
             return
         bank_name = next(bank["name"] for bank in self.database.get_banks() if bank["id"] == bank_id)
         dialog = QuestionEditorDialog(bank_name, parent=self)
-        if dialog.exec() == QDialog.Accepted:
+        if dialog.exec_() == QDialog.Accepted:
             question = dialog.value()
             question.source_order = len(self.database.list_questions(bank_ids=[bank_id])) + 1
             self.database.upsert_question(bank_id, question)
@@ -526,7 +526,7 @@ class BankPage(QWidget):
             QMessageBox.information(self, "提示", "请先选择一道题。")
             return
         dialog = QuestionEditorDialog(question.bank_name, question, self)
-        if dialog.exec() == QDialog.Accepted:
+        if dialog.exec_() == QDialog.Accepted:
             self.database.update_question(question.id, dialog.value())
             self.refresh()
             self.data_changed.emit()
@@ -821,7 +821,7 @@ class QuizDialog(QDialog):
 
     def _review_pending(self, finish_exam: bool = False) -> None:
         dialog = SubjectiveReviewDialog(self.session, self)
-        if dialog.exec() != QDialog.Accepted:
+        if dialog.exec_() != QDialog.Accepted:
             return
         try:
             result = self.service.finalize_subjective(self.session, dialog.adjustments())
@@ -835,7 +835,7 @@ class QuizDialog(QDialog):
     def _finish_exam(self, result) -> None:
         history = self.database.get_session(self.session.id)
         QMessageBox.information(self, "考试成绩", f"得分：{result.score} / {result.total}\n正确率：{result.accuracy:.1%}")
-        ReviewDialog("试卷回看", history["items"], self).exec()
+        ReviewDialog("试卷回看", history["items"], self).exec_()
         self.accept()
 
 
@@ -1163,7 +1163,7 @@ class SessionSetupPage(QWidget):
         except ValueError as exc:
             QMessageBox.warning(self, "无法开始", str(exc))
             return
-        QuizDialog(self.database, session, self).exec()
+        QuizDialog(self.database, session, self).exec_()
 
     def filters(self) -> dict[str, Any]:
         bank_id = self.bank_combo.currentData()
@@ -1227,7 +1227,7 @@ class WrongPage(QWidget):
         except ValueError:
             QMessageBox.information(self, "暂无错题", "当前没有待强化的错题。")
             return
-        QuizDialog(self.database, session, self).exec()
+        QuizDialog(self.database, session, self).exec_()
         self.refresh()
 
 
@@ -1267,7 +1267,7 @@ class HistoryPage(QWidget):
         if row < 0:
             return
         session = HistoryService(self.database).get(int(self.table.item(row, 0).data(Qt.UserRole)))
-        ReviewDialog("答题详情", session["items"], self).exec()
+        ReviewDialog("答题详情", session["items"], self).exec_()
 
 
 class SettingsPage(QWidget):

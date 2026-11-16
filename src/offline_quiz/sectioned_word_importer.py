@@ -28,7 +28,7 @@ RELAXED_OPTION_RE = re.compile(
 )
 
 
-@dataclass(slots=True)
+@dataclass
 class _QuestionBlock:
     number: int
     question_type: QuestionType

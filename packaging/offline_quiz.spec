@@ -16,8 +16,8 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
-        "PySide6.QtWebEngineCore",
-        "PySide6.QtWebEngineWidgets",
+        "PySide2.QtWebEngineCore",
+        "PySide2.QtWebEngineWidgets",
         "numpy",
         "pandas",
         "pytest",

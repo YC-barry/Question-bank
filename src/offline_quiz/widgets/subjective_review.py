@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import (
+from PySide2.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QGroupBox,

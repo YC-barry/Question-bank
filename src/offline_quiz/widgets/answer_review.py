@@ -3,9 +3,9 @@ from __future__ import annotations
 from math import ceil
 from typing import Any
 
-from PySide6.QtCore import QSize, QTimer, Qt, Signal
-from PySide6.QtGui import QFont
-from PySide6.QtWidgets import (
+from PySide2.QtCore import QSize, QTimer, Qt, Signal
+from PySide2.QtGui import QFont
+from PySide2.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,

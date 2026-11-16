@@ -29,7 +29,7 @@ class DuplicatePolicy(str, Enum):
     OVERWRITE = "覆盖"
 
 
-@dataclass(slots=True)
+@dataclass
 class QuestionAsset:
     mime_type: str
     data: bytes
@@ -37,7 +37,7 @@ class QuestionAsset:
     alt_text: str = ""
 
 
-@dataclass(slots=True)
+@dataclass
 class Question:
     bank_name: str
     question_type: QuestionType
@@ -70,7 +70,7 @@ class Question:
         return data
 
 
-@dataclass(slots=True)
+@dataclass
 class GradeResult:
     is_correct: bool
     earned_points: int
@@ -82,7 +82,7 @@ class GradeResult:
     suggestion: SubjectiveSuggestion | None = None
 
 
-@dataclass(slots=True)
+@dataclass
 class SubjectiveSuggestion:
     status: str
     suggested_points: int
@@ -91,7 +91,7 @@ class SubjectiveSuggestion:
     requires_confirmation: bool = True
 
 
-@dataclass(slots=True)
+@dataclass
 class ImportIssue:
     source: str
     location: str
@@ -100,7 +100,7 @@ class ImportIssue:
     severity: str = "错误"
 
 
-@dataclass(slots=True)
+@dataclass
 class ImportResult:
     source_path: str
     questions: list[Question] = field(default_factory=list)
@@ -111,14 +111,14 @@ class ImportResult:
         return any(issue.severity == "错误" for issue in self.issues)
 
 
-@dataclass(slots=True)
+@dataclass
 class ImportSummary:
     inserted: int = 0
     overwritten: int = 0
     skipped: int = 0
 
 
-@dataclass(slots=True)
+@dataclass
 class QuizSession:
     id: int
     mode: QuizMode
@@ -129,7 +129,7 @@ class QuizSession:
     persisted_indexes: set[int] = field(default_factory=set)
 
 
-@dataclass(slots=True)
+@dataclass
 class SessionResult:
     session_id: int
     score: int

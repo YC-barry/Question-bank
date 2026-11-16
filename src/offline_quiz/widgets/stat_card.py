@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout
+from PySide2.QtCore import QSize, Qt
+from PySide2.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout
 
 from ..assets import load_svg_icon
 from ..theme import ThemeTokens

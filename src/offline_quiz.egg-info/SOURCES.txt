@@ -49,3 +49,4 @@ tests/test_subjective_ui.py
 tests/test_templates.py
 tests/test_ui.py
 tests/test_visual_theme.py
+tests/test_win7_runtime_contract.py

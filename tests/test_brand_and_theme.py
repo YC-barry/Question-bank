@@ -49,19 +49,19 @@ def test_main_window_displays_kuishuquiz_brand(qtbot, tmp_path):
     window = MainWindow(Database(tmp_path / "quiz.db"), tmp_path)
     qtbot.addWidget(window)
 
-    assert window.windowTitle() == "岿枢题典"
-    assert "岿枢题典" in [label.text() for label in window.findChildren(QLabel)]
+    assert window.windowTitle() == "岿枢题典（Win7 兼容版）"
+    assert "岿枢题典（Win7 兼容版）" in [label.text() for label in window.findChildren(QLabel)]
 
 
 def test_word_template_uses_kuishuquiz_brand(tmp_path):
     path = TemplateService.export_word(tmp_path / "template.docx")
     paragraphs = [paragraph.text for paragraph in Document(path).paragraphs]
 
-    assert paragraphs[0] == "岿枢题典 Word 模板"
-    assert "本模板用于建立可由岿枢题典直接导入的题库。" in paragraphs[1]
+    assert paragraphs[0] == "岿枢题典（Win7 兼容版） Word 模板"
+    assert "本模板用于建立可由岿枢题典（Win7 兼容版）直接导入的题库。" in paragraphs[1]
 
 
-def test_brand_change_preserves_legacy_user_data_directory(monkeypatch, tmp_path):
+def test_win7_edition_uses_isolated_user_data_directory(monkeypatch, tmp_path):
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
 
-    assert data_directory() == tmp_path / "OfflineQuiz" / "data"
+    assert data_directory() == tmp_path / "OfflineQuiz-Win7" / "data"

@@ -1,11 +1,15 @@
 from offline_quiz import __version__
 from offline_quiz.app import prepare_database
 from offline_quiz.backup import BackupService
+from offline_quiz.branding import DATA_DIRECTORY, EXECUTABLE_BASENAME, PRODUCT_NAME
 from offline_quiz.database import Database
 
 
-def test_user_visible_version_identifies_test9_release():
-    assert __version__ == "1.6.0-test9"
+def test_user_visible_identity_identifies_win7_compatibility_release():
+    assert PRODUCT_NAME == "岿枢题典（Win7 兼容版）"
+    assert EXECUTABLE_BASENAME == "KuishuQuiz-Win7"
+    assert DATA_DIRECTORY == "OfflineQuiz-Win7"
+    assert __version__ == "1.6.0-win7-rc1"
 
 
 def test_corrupt_database_opens_recovery_path_without_partial_backup(tmp_path):

@@ -18,7 +18,7 @@ from PySide2.QtWidgets import (
 
 from . import __version__
 from .backup import BackupService
-from .branding import LEGACY_DATA_DIRECTORY, PRODUCT_NAME
+from .branding import DATA_DIRECTORY, PRODUCT_NAME
 from .database import Database
 from .ui import APP_STYLE, MainWindow
 
@@ -33,7 +33,7 @@ def configure_qt_for_win7() -> None:
 
 def data_directory() -> Path:
     root = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
-    return root / LEGACY_DATA_DIRECTORY / "data"
+    return root / DATA_DIRECTORY / "data"
 
 
 def configure_logging(data_dir: Path) -> None:

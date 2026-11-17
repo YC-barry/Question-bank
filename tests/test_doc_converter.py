@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import sys
 import time
@@ -20,6 +21,93 @@ def _write_converter(tmp_path: Path, body: str) -> Path:
 
 def test_default_timeout_allows_cold_starting_bundled_converter():
     assert DocConversionService().timeout_seconds == 120
+
+
+def test_convert_prepends_bundled_system64_to_converter_path(tmp_path, monkeypatch):
+    layout = tmp_path / "libreoffice"
+    runtime_dir = layout / "System64"
+    runtime_dir.mkdir(parents=True)
+    converter_path = layout / "program" / "soffice.exe"
+    converter_path.parent.mkdir()
+    converter_path.touch()
+    converter = _write_converter(
+        tmp_path,
+        """
+import os
+from pathlib import Path
+import sys
+args = sys.argv[1:]
+out_dir = Path(args[args.index('--outdir') + 1])
+source = Path(args[-1])
+out_dir.mkdir(parents=True, exist_ok=True)
+(out_dir / f'{source.stem}.docx').write_text(os.environ['PATH'], encoding='utf-8')
+""",
+    )
+    source = tmp_path / "runtime-path.doc"
+    source.write_bytes(b"legacy")
+    monkeypatch.setenv("PATH", "original-bin")
+    service = DocConversionService(
+        executable=converter_path,
+        command_prefix=[sys.executable, str(converter)],
+        temp_root=tmp_path / "working",
+    )
+
+    converted = service.convert(source)
+
+    assert converted.path.read_text(encoding="utf-8").split(os.pathsep) == [
+        str(runtime_dir),
+        "original-bin",
+    ]
+    converted.cleanup()
+
+
+def test_convert_does_not_add_missing_system64_to_path(tmp_path, monkeypatch):
+    layout = tmp_path / "libreoffice"
+    converter_path = layout / "program" / "soffice.exe"
+    converter_path.parent.mkdir(parents=True)
+    converter_path.touch()
+    converter = _write_converter(
+        tmp_path,
+        """
+import os
+from pathlib import Path
+import sys
+args = sys.argv[1:]
+out_dir = Path(args[args.index('--outdir') + 1])
+source = Path(args[-1])
+out_dir.mkdir(parents=True, exist_ok=True)
+(out_dir / f'{source.stem}.docx').write_text(os.environ['PATH'], encoding='utf-8')
+""",
+    )
+    source = tmp_path / "no-runtime-path.doc"
+    source.write_bytes(b"legacy")
+    monkeypatch.setenv("PATH", "original-bin")
+    service = DocConversionService(
+        executable=converter_path,
+        command_prefix=[sys.executable, str(converter)],
+        temp_root=tmp_path / "working",
+    )
+
+    converted = service.convert(source)
+
+    assert converted.path.read_text(encoding="utf-8") == "original-bin"
+    converted.cleanup()
+
+
+def test_silent_converter_failure_reports_exit_code_and_incomplete_package(tmp_path):
+    converter = _write_converter(tmp_path, "raise SystemExit(7)")
+    source = tmp_path / "silent-failure.doc"
+    source.write_bytes(b"broken")
+    service = DocConversionService(
+        command_prefix=[sys.executable, str(converter)],
+        temp_root=tmp_path / "working",
+    )
+
+    with pytest.raises(DocConversionError) as error:
+        service.convert(source)
+
+    assert "退出代码 7" in str(error.value)
+    assert "安装包可能不完整" in str(error.value)
 
 
 def test_convert_uses_isolated_copy_and_returns_docx(tmp_path):

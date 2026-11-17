@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -53,9 +54,22 @@ class DocConversionService:
         temp_root: str | Path | None = None,
     ):
         converter = Path(executable) if executable is not None else bundled_converter_path()
+        self.converter_path = converter
         self.command_prefix = list(command_prefix) if command_prefix else [str(converter)]
         self.timeout_seconds = float(timeout_seconds)
         self.temp_root = Path(temp_root) if temp_root is not None else None
+
+    def _conversion_environment(self) -> dict[str, str]:
+        environment = os.environ.copy()
+        runtime_dir = self.converter_path.parent.parent / "System64"
+        if runtime_dir.is_dir():
+            current_path = environment.get("PATH", "")
+            environment["PATH"] = (
+                os.pathsep.join((str(runtime_dir), current_path))
+                if current_path
+                else str(runtime_dir)
+            )
+        return environment
 
     def _run_conversion(
         self,
@@ -89,6 +103,7 @@ class DocConversionService:
             encoding="utf-8",
             errors="replace",
             creationflags=creation_flags,
+            env=self._conversion_environment(),
         )
         try:
             stdout, stderr = process.communicate(timeout=self.timeout_seconds)
@@ -100,7 +115,12 @@ class DocConversionService:
                 process.kill()
                 process.communicate()
             raise DocConversionError("转换旧版 Word 文件超时，请检查文件是否损坏") from exc
-        details = (stderr or stdout or "转换组件返回错误").strip()
+        details = (stderr or stdout).strip()
+        if not details:
+            details = (
+                f"转换组件无法启动（退出代码 {process.returncode}），"
+                "安装包可能不完整或系统组件不兼容"
+            )
         return process.returncode, details
 
     def convert(self, source: str | Path) -> ConvertedDocument:

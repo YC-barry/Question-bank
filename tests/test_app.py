@@ -9,7 +9,7 @@ def test_user_visible_identity_identifies_win7_compatibility_release():
     assert PRODUCT_NAME == "岿枢题典（Win7 兼容版）"
     assert EXECUTABLE_BASENAME == "KuishuQuiz-Win7"
     assert DATA_DIRECTORY == "OfflineQuiz-Win7"
-    assert __version__ == "1.6.0-win7-rc1"
+    assert __version__ == "1.6.0-win7-rc2"
 
 
 def test_corrupt_database_opens_recovery_path_without_partial_backup(tmp_path):

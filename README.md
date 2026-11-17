@@ -4,7 +4,7 @@
 
 ## Win7 兼容版说明
 
-当前版本 `1.6.0-win7-rc1` 是候选版，运行时固定为 Python 3.8.10 和 PySide2 5.15.2.1，并内置官方 x64 版 LibreOffice 25.2.7 用于离线转换旧版 Word 文档。程序界面和安装包只保留简体中文；LibreOffice 的通用运行组件仍会保留，但其他语言资源和无界面转换不需要的帮助模块会在打包时自动删除。Win7 设备必须为 SP1 64 位，并预先安装 KB4490628、KB4474419 和 KB2999226；建议在正式使用前先备份题库并完成一次导入、答题和备份恢复验证。
+当前版本 `1.6.0-win7-rc2` 是候选版，运行时固定为 Python 3.8.10 和 PySide2 5.15.2.1，并内置官方 x64 版 LibreOffice 25.2.7 用于离线转换旧版 Word 文档。程序界面和安装包只保留简体中文；LibreOffice 的通用运行组件以及转换所需的 x64 Microsoft C++ 运行库均随安装包提供，不要求在单位电脑另行联网下载或全局安装 VC++。其他语言资源和无界面转换不需要的帮助模块会在打包时自动删除。Win7 设备必须为 SP1 64 位，并预先安装 KB4490628、KB4474419 和 KB2999226；其中 KB2999226 是系统级 UCRT 前置条件，不能用应用目录中的普通 DLL 安全替代。建议在正式使用前先备份题库并完成一次导入、答题和备份恢复验证。
 
 本版本使用独立的 `%LOCALAPPDATA%\OfflineQuiz-Win7\data` 数据目录，不读取、不覆盖 Win10+ 现代版的 `%LOCALAPPDATA%\OfflineQuiz` 数据。
 
@@ -61,7 +61,7 @@ $env:QT_QPA_PLATFORM="offscreen"
 .\packaging\build.ps1
 ```
 
-脚本先运行测试，再生成 `dist\KuishuQuiz-Win7` 应用目录，按简体中文白名单删除内置 LibreOffice 的其他语言资源并执行产物审计，然后使用官方简体中文语言文件生成 `dist\installer\KuishuQuiz-Win7-Setup-1.6.0-win7-rc1.exe`，最后把同名安装器复制到项目根目录。该安装器是面向 Windows 7 SP1 x64 的候选版，也可安装在 Windows 10/11 x64。
+脚本先运行测试，再生成 `dist\KuishuQuiz-Win7` 应用目录，按简体中文白名单删除内置 LibreOffice 的其他语言资源，检查关键 C++ 运行库完整且均为 x64，然后使用官方简体中文语言文件生成 `dist\installer\KuishuQuiz-Win7-Setup-1.6.0-win7-rc2.exe`。同名安装器还会复制到项目根目录和 `KuishuQuiz-Win7\KuishuQuiz-Win7-Setup-1.6.0-win7-rc2.exe`，后者可直接拷贝到无网络的单位电脑安装。该安装器是面向 Windows 7 SP1 x64 的候选版，也可安装在 Windows 10/11 x64。
 
 > GitHub 仓库只保存可维护的源码、测试、打包脚本和界面素材。解析 Word、提取后的解析数据、虚拟环境、构建产物、用户题库数据库以及体积过大的 LibreOffice 二进制文件均不会提交。
 

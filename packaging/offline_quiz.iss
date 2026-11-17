@@ -1,5 +1,5 @@
 #define MyAppName "岿枢题典（Win7 兼容版）"
-#define MyAppVersion "1.6.0-win7-rc1"
+#define MyAppVersion "1.6.0-win7-rc2"
 #define MyAppPublisher "KuishuQuiz-Win7"
 #define MyAppExeName "KuishuQuiz-Win7.exe"
 

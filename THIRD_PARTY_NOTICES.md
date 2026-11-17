@@ -20,6 +20,12 @@ LibreOffice 及其第三方组件的许可证和声明随安装目录一并提�
 
 LibreOffice 是独立的第三方自由软件项目。本软件仅调用其无界面转换能力。
 
+### 随包 Microsoft C++ 运行库
+
+旧版 Word 转换所需的 x64 Microsoft C++ 运行库来自上述 The Document Foundation 官方 LibreOffice x64 MSI 内的 `App/libreoffice/System64`，随 LibreOffice 一同打包。构建脚本会检查关键 DLL 存在且 PE Machine 为 x64 (`0x8664`)；程序只在启动 LibreOffice 子进程时使用该私有目录，不修改系统 `PATH`，不向 Windows 系统目录写入 DLL，也不从非官方站点另行下载零散 DLL。
+
+Windows 7 的 KB2999226（Universal C Runtime）仍是系统级前置条件，需在离线电脑上预先安装。
+
 ## Inno Setup 简体中文翻译
 
 用途：让安装和卸载向导只显示简体中文。语言文件来自 Inno Setup 官方源码仓库，由 Zhenghan Yang 维护。
